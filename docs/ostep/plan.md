@@ -110,7 +110,8 @@ Ch01 Intro
 ## Theme / design system — "phosphor terminal"
 
 - **Motif:** a terminal/CRT look: `$` prompts, block cursors, box-drawing borders, subtle scanlines in the hero, layered "stack" diagrams (apps / OS / hardware).
-- **Fonts:** headings *Space Grotesk*, body *IBM Plex Sans*, code & labels *JetBrains Mono*.
+- **Theme (current):** "Calm" — graphite dark default + light mode, one muted teal accent, muted semantic diagram colors, no decorative animation. Fonts: Inter + JetBrains Mono. (Replaced the original "phosphor terminal" design after review.)
+- **Fonts (original design):** headings *Space Grotesk*, body *IBM Plex Sans*, code & labels *JetBrains Mono*.
 - **Colors (CSS variables, dark is default look, light is "paper terminal"):**
   - `--accent` phosphor green — user programs / processes / "the good path"
   - `--kernel` amber — the OS / kernel mode
@@ -136,7 +137,21 @@ Ch01 Intro
 | History | Timeline SVG | — |
 | Multiprogramming payoff | Chart.js utilization curve | Lab 3: slider for I/O wait fraction (simplified model, flagged) |
 
+### Chapter 02 — The Abstraction: The Process
+| Concept | Visual | Interaction |
+|---|---|---|
+| Time vs space sharing | Side-by-side CPU timeline vs disk block grid + comparison table | — |
+| Mechanism vs policy | Layer diagram (policy over mechanism) | — (runnable `policy.c`) |
+| Machine state | Memory-layout diagram with registers and fd table | — (runnable `layout.c`) |
+| Process API | Operation → UNIX table; real `ps`/`kill` transcript | — |
+| Process creation | Disk → memory loading diagram | Step-through loader (play/pause/step) |
+| Process states | State machine + book trace tables + Linux STAT mapping | Event buttons driving the state machine |
+| Process list / PCB | xv6 `struct proc` annotated | Context-switch save/restore widget; `zombie.c` |
+| Lab | Process-state simulator (process-run.py-like) | Presets incl. book Figs 4.3/4.4, policies for I/O |
+
 ## Uncertainties / notes
+- Ch02: The PDF pages for book chapter 4 say version 0.91 (chapters 1–2 say 0.90).
+- Ch02: The lab simulator is our own, inspired by `process-run.py`; its timing rules are stated on the page and reproduce the book's Figures 4.3 and 4.4 exactly, but may differ in detail from the real script.
 - Ch01: The book's `io.c` writes 13 bytes for `"hello world\n"` (12 visible chars), so the file gets a trailing NUL byte — verified with `od -c`. The page points this out and uses `strlen`.
 - Ch01: The book's `mem.c` prints a pointer with `%08x` and an `(unsigned)` cast, which truncates 64-bit pointers; the page modernizes to `%p`.
 - Ch01: Book's shell line `./cpu A & ; ./cpu B & ...` is tcsh syntax; bash equivalent given.

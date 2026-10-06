@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Library — learn-visually</title>
+<meta name="description" content="Visual, chapter-by-chapter study guides for technical books.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>/*@include shared/base.css*/
+/*@include ostep/theme.css*/
+main.wide { max-width: 980px; margin: 0 auto; padding: 0 20px 4rem; }
+.search { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1.4rem 0 .4rem; }
+.search input { flex: 1 1 240px; }
+.tagchip { font-size: .74rem; color: var(--accent); }
+.empty { color: var(--muted); display: none; }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="topbar">
+  <nav class="crumbs" aria-label="Breadcrumb"><span class="here">library</span></nav>
+  <button class="icon-btn" type="button" data-theme-toggle aria-label="Toggle theme"></button>
+  <div class="progress" aria-hidden="true"></div>
+</header>
+<main id="main" class="wide">
+
+<header class="hero">
+  <div class="kicker">learn-visually</div>
+  <h1>Library</h1>
+  <p class="hook">Chapter-by-chapter study pages with diagrams, runnable code, labs and quizzes.</p>
+</header>
+<div class="search" role="search">
+  <input type="search" id="q" placeholder="Search by title, author or topic" aria-label="Search books">
+  <select id="topic" aria-label="Filter by topic"><option value="">All topics</option><option value="Computer architecture">Computer architecture</option><option value="Machine learning">Machine learning</option><option value="Operating systems">Operating systems</option></select>
+</div>
+<div class="cards"><a class="card book" data-topic="Operating systems" data-text="operating systems: three easy pieces remzi h. &amp; andrea c. arpaci-dusseau operating systems" href="ostep/index.html"><span class="tagchip">Operating systems</span><h3>Operating Systems: Three Easy Pieces</h3><p>Remzi H. &amp; Andrea C. Arpaci-Dusseau</p><p>Virtualization, concurrency and persistence — how an OS really works.</p><div class="meta"><span class="chip">42 chapters</span><span class="chip">2 ready</span></div></a><div class="card book locked" data-topic="Computer architecture" data-text="inside the machine jon stokes computer architecture"><span class="tagchip">Computer architecture</span><h3>Inside the Machine</h3><p>Jon Stokes</p><p>An illustrated introduction to microprocessors and computer architecture.</p><div class="meta"><span class="chip">12 chapters</span><span class="chip">0 ready</span></div><span class="soon" style="font-size:.8rem">Not started</span></div><div class="card book locked" data-topic="Machine learning" data-text="inference engineering philip kiely machine learning"><span class="tagchip">Machine learning</span><h3>Inference Engineering</h3><p>Philip Kiely</p><p>Serving models in production: hardware, software, techniques and operations.</p><div class="meta"><span class="chip">8 chapters</span><span class="chip">0 ready</span></div><span class="soon" style="font-size:.8rem">Not started</span></div></div>
+<p class="empty">No books match.</p>
+</main>
+<footer class="site">learn-visually · study guides built from the books in this repository.</footer>
+<script>/*@include shared/base.js*/</script>
+<script>
+(function () {
+  var q = document.getElementById("q"), t = document.getElementById("topic"), empty = document.querySelector(".empty");
+  function filter() {
+    var s = q.value.trim().toLowerCase(), topic = t.value, shown = 0;
+    document.querySelectorAll(".book").forEach(function (c) {
+      var ok = (!s || c.getAttribute("data-text").indexOf(s) >= 0) && (!topic || c.getAttribute("data-topic") === topic);
+      c.hidden = !ok; if (ok) shown++;
+    });
+    empty.style.display = shown ? "none" : "block";
+  }
+  q.addEventListener("input", filter); t.addEventListener("change", filter);
+})();
+</script>
+</body>
+</html>

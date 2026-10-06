@@ -1,0 +1,1403 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch. 02 · The Abstraction: The Process — OSTEP Study Guide</title>
+<meta name="description" content="Study page for Operating Systems: Three Easy Pieces, chapters 3–4: what a process is, its machine state, the process API, how a process is created, process states, and the data structures the OS uses to track processes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>/*@include shared/base.css*/
+/*@include ostep/theme.css*/
+/* ---- chapter-specific ---- */
+.sm-node rect, .sm-node ellipse { transition: stroke-width .15s; }
+.sm-node.on rect, .sm-node.on ellipse { stroke: var(--accent); stroke-width: 3; }
+.sm-node.on text { fill: var(--text-strong); font-weight: 600; }
+.sm-edge.flash { stroke: var(--accent); stroke-width: 2.5; }
+.event-grid { display: flex; flex-wrap: wrap; gap: .4rem; }
+.ld-step { transition: opacity .3s; }
+.ld-step.off { opacity: .08; }
+.ld-step.now rect { stroke: var(--accent); stroke-width: 2.4; }
+.cs-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); gap: .6rem; }
+@media (max-width: 600px) { .cs-grid { grid-template-columns: 1fr 1fr; } .cs-cpu { grid-column: 1 / -1; } }
+.cs-card { border: 1px solid var(--line); border-radius: var(--r); padding: .6rem .7rem; font-family: var(--font-mono); font-size: .78rem; min-width: 0; }
+.cs-card h5 { margin: 0 0 .35rem; font-size: .8rem; font-family: var(--font-body); }
+.cs-card .st { float: right; font-size: .7rem; color: var(--muted); }
+.cs-card.running { border-color: var(--c-green); }
+.cs-card.running .st { color: var(--c-green); }
+.cs-cpu { border-color: var(--c-cyan); }
+.cs-cpu h5 { color: var(--c-cyan); }
+.cs-card dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: .1rem .6rem; }
+.cs-card dt { color: var(--muted); }
+.cs-card dd { margin: 0; color: var(--text-strong); }
+.cs-card dd.flash { color: var(--accent); }
+.ps-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .5rem; }
+.ps-inputs label { display: flex; flex-direction: column; gap: .2rem; font-size: .78rem; color: var(--muted); }
+.ps-inputs input { width: 100%; }
+.trace-wrap { overflow-x: auto; max-height: 26em; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--r); }
+.trace { min-width: 420px; font-family: var(--font-mono); font-size: .76rem; }
+.trace th, .trace td { padding: .28rem .55rem; text-align: center; white-space: nowrap; }
+.trace th { position: sticky; top: 0; background: var(--bg); }
+.trace td:first-child, .trace th:first-child { text-align: right; color: var(--muted); }
+.trace td:last-child, .trace th:last-child { text-align: left; color: var(--muted); }
+.trace .run { color: var(--c-green); }
+.trace .rio { color: var(--c-green); font-weight: 600; }
+.trace .rdy { color: var(--muted); }
+.trace .blk { color: var(--c-cyan); }
+.trace .done { color: var(--line-strong); }
+.trace tr.cur td { background: var(--soft); }
+.trace .busy { color: var(--text-strong); }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <button class="icon-btn toc-toggle" type="button" aria-controls="toc" aria-expanded="false" aria-label="Open table of contents">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+  </button>
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a href="../index.html">library</a><span class="sep">/</span>
+    <a href="index.html" class="optional">ostep</a><span class="sep optional">/</span>
+    <span class="here">02 · The Abstraction: The Process</span>
+  </nav>
+  <button class="icon-btn" type="button" data-theme-toggle aria-label="Toggle theme"></button>
+  <div class="progress" aria-hidden="true"></div>
+</header>
+
+<div class="toc-scrim"></div>
+<div class="layout">
+  <nav class="toc" id="toc" aria-label="On this page">
+    <h2>On this page</h2>
+    <ol>
+      <li><a href="#why">Why this matters</a></li>
+      <li><a href="#map">Big-picture map</a></li>
+      <li><a href="#concepts">Core concepts</a>
+        <ol>
+          <li><a href="#c-share">1 · Time sharing &amp; space sharing</a></li>
+          <li><a href="#c-mp">2 · Mechanisms vs policies</a></li>
+          <li><a href="#c-proc">3 · What a process is</a></li>
+          <li><a href="#c-api">4 · The process API</a></li>
+          <li><a href="#c-create">5 · Creating a process</a></li>
+          <li><a href="#c-states">6 · Process states</a></li>
+          <li><a href="#c-pcb">7 · The process list &amp; PCB</a></li>
+        </ol>
+      </li>
+      <li><a href="#labs">Interactive lab</a></li>
+      <li><a href="#case">Worked example</a></li>
+      <li><a href="#takeaways">Key takeaways</a></li>
+      <li><a href="#practice">Practice</a></li>
+      <li><a href="#quiz">Self-check quiz</a></li>
+      <li><a href="#cheatsheet">Cheat sheet</a></li>
+      <li><a href="#glossary">Glossary</a></li>
+      <li><a href="#connections">Connections</a></li>
+    </ol>
+  </nav>
+
+<main id="main">
+
+<!-- ================================================================ HERO -->
+<header class="hero">
+  <div class="kicker">Chapter 02 · OSTEP ch. 3–4</div>
+  <h1>The Abstraction: The Process</h1>
+  <p class="hook">A program on disk is just bytes. A process is that program brought to life: loaded into memory, given registers and open files, and tracked by the OS as it runs, waits and finishes.</p>
+  <div class="meta">
+    <span class="chip level">Beginner</span>
+    <span class="chip">~30 min</span>
+    <span class="chip">C · Linux · gcc 13</span>
+  </div>
+  <p class="prereqs"><strong>Prerequisites:</strong> <a href="chapter-01.html">Ch. 01 — Introduction to Operating Systems</a> (virtualizing the CPU, mechanism vs policy, user vs kernel mode).</p>
+  <figure class="hero-art">
+    <svg viewBox="0 0 640 210" role="img" aria-labelledby="hero-t hero-d">
+      <title id="hero-t">From program to process</title>
+      <desc id="hero-d">On the left, a program on disk containing code and static data. An arrow labelled load leads to a process on the right, made of an address space in memory with code, static data, heap and stack, plus CPU registers and open files.</desc>
+      <defs><marker id="ha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="f-muted"/></marker></defs>
+      <text x="80" y="16" text-anchor="middle" class="s-text-soft">PROGRAM (on disk)</text>
+      <rect x="10" y="26" width="140" height="150" rx="8" class="s-violet"/>
+      <rect x="25" y="46" width="110" height="34" rx="5" class="s-box"/><text x="80" y="68" text-anchor="middle" class="s-text">code</text>
+      <rect x="25" y="88" width="110" height="34" rx="5" class="s-box"/><text x="80" y="110" text-anchor="middle" class="s-text">static data</text>
+      <text x="80" y="160" text-anchor="middle" class="s-text-soft">lifeless bytes</text>
+      <path d="M160 101h86" class="s-arrow" marker-end="url(#ha)"/><text x="203" y="92" text-anchor="middle" class="s-text-soft">OS loads</text>
+      <text x="440" y="16" text-anchor="middle" class="s-text-soft">PROCESS (a running program)</text>
+      <rect x="256" y="26" width="374" height="178" rx="8" fill="none" class="s-line"/>
+      <rect x="270" y="38" width="150" height="156" rx="6" class="s-user"/>
+      <text x="345" y="58" text-anchor="middle" class="s-text-soft">memory</text>
+      <rect x="282" y="66" width="126" height="24" rx="4" class="s-box"/><text x="345" y="83" text-anchor="middle" class="s-text">code</text>
+      <rect x="282" y="94" width="126" height="24" rx="4" class="s-box"/><text x="345" y="111" text-anchor="middle" class="s-text">static data</text>
+      <rect x="282" y="122" width="126" height="24" rx="4" class="s-box"/><text x="345" y="139" text-anchor="middle" class="s-text">heap ↓</text>
+      <rect x="282" y="162" width="126" height="24" rx="4" class="s-box"/><text x="345" y="179" text-anchor="middle" class="s-text">stack ↑</text>
+      <rect x="436" y="38" width="180" height="70" rx="6" class="s-hw"/>
+      <text x="526" y="58" text-anchor="middle" class="s-text-soft">registers</text>
+      <text x="526" y="80" text-anchor="middle" class="s-text">PC · SP · FP · …</text>
+      <rect x="436" y="120" width="180" height="74" rx="6" class="s-kernel"/>
+      <text x="526" y="140" text-anchor="middle" class="s-text-soft">I/O state</text>
+      <text x="526" y="162" text-anchor="middle" class="s-text">fd 0, 1, 2 · files</text>
+    </svg>
+  </figure>
+</header>
+
+<div class="box note">
+  <p class="box-label">About this page</p>
+  <p>Based on <em>Operating Systems: Three Easy Pieces</em> by Remzi &amp; Andrea Arpaci-Dusseau, chapter 3 (dialogue) and chapter 4 (the PDF pages for chapter 4 are marked version 0.91). Explanations are written fresh for this guide. All C programs here are our own; they were compiled and run on Linux x86-64 with gcc 13.3, and every output shown comes from those runs unless labelled "illustrative".</p>
+</div>
+
+<!-- ================================================================ WHY -->
+<section class="block" id="why">
+  <h2>Why this matters</h2>
+  <p>Every time you run a command, open an app or start a server, the OS creates a <a class="gl" data-term="process">process</a>. Most everyday operations questions are really questions about processes:</p>
+  <div class="why-grid">
+    <div class="box"><h4>"What is this process doing?"</h4><p><code>ps</code> and <code>top</code> show a state letter — <code>R</code>, <code>S</code>, <code>T</code>, <code>Z</code>. This chapter explains what those states mean.</p></div>
+    <div class="box"><h4>"Why are there &lt;defunct&gt; entries?"</h4><p>Those are zombie processes: finished, but not yet collected by their parent. You'll create — and clean up — some.</p></div>
+    <div class="box"><h4>"Why does my CPU sit idle?"</h4><p>Processes that wait for disk or network are <em>blocked</em>. Good OSes run something else meanwhile.</p></div>
+    <div class="box"><h4>"What does the kernel keep about my program?"</h4><p>A record per process: its state, registers, memory, open files. Knowing it explains <code>/proc</code> and debuggers.</p></div>
+  </div>
+</section>
+
+<!-- ================================================================ MAP -->
+<section class="block" id="map">
+  <h2>Big-picture map</h2>
+  <p>Click a box to jump to that concept.</p>
+  <figure class="viz">
+    <div class="scroll-x">
+    <svg viewBox="0 0 760 400" role="img" aria-labelledby="map-t map-d" style="min-width:560px">
+      <title id="map-t">Concept map of Chapter 2</title>
+      <desc id="map-d">The OS shares the CPU by time sharing, built from mechanisms and policies. A program on disk is loaded to become a process, whose machine state is memory, registers and I/O. Processes are controlled by the process API, move between running, ready and blocked states, and are tracked in the process list as PCBs.</desc>
+      <defs><marker id="ma" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="f-muted"/></marker></defs>
+      <a href="#c-share"><rect x="20" y="14" width="350" height="56" rx="8" class="s-kernel"/><text x="195" y="38" text-anchor="middle" class="s-head">Time sharing the CPU</text><text x="195" y="58" text-anchor="middle" class="s-text-soft">§1 · the illusion of many CPUs</text></a>
+      <a href="#c-mp"><rect x="390" y="14" width="350" height="56" rx="8" class="s-kernel"/><text x="565" y="38" text-anchor="middle" class="s-head">Mechanisms + policies</text><text x="565" y="58" text-anchor="middle" class="s-text-soft">§2 · how vs which</text></a>
+      <path d="M195 70v40M565 70v40" class="s-arrow" marker-end="url(#ma)"/>
+      <a href="#c-create"><rect x="20" y="110" width="200" height="56" rx="8" class="s-violet"/><text x="120" y="134" text-anchor="middle" class="s-head">Program on disk</text><text x="120" y="154" text-anchor="middle" class="s-text-soft">§5 · load, set up, jump</text></a>
+      <path d="M220 138h56" class="s-arrow" marker-end="url(#ma)"/>
+      <a href="#c-proc"><rect x="276" y="110" width="464" height="56" rx="8" class="s-user"/><text x="508" y="134" text-anchor="middle" class="s-head">PROCESS = a running program</text><text x="508" y="154" text-anchor="middle" class="s-text-soft">§3 · memory · registers (PC, SP) · open files</text></a>
+      <path d="M350 166v40M508 166v40M666 166v40" class="s-arrow" marker-end="url(#ma)"/>
+      <a href="#c-api"><rect x="276" y="206" width="148" height="76" rx="8" class="s-box"/><text x="350" y="232" text-anchor="middle" class="s-head">Process API</text><text x="350" y="252" text-anchor="middle" class="s-text-soft">create · destroy · wait</text><text x="350" y="268" text-anchor="middle" class="s-text-soft">control · status (§4)</text></a>
+      <a href="#c-states"><rect x="434" y="206" width="148" height="76" rx="8" class="s-box"/><text x="508" y="232" text-anchor="middle" class="s-head">States</text><text x="508" y="252" text-anchor="middle" class="s-text-soft">running · ready</text><text x="508" y="268" text-anchor="middle" class="s-text-soft">blocked (§6)</text></a>
+      <a href="#c-pcb"><rect x="592" y="206" width="148" height="76" rx="8" class="s-kernel"/><text x="666" y="232" text-anchor="middle" class="s-head">Process list</text><text x="666" y="252" text-anchor="middle" class="s-text-soft">one PCB per process</text><text x="666" y="268" text-anchor="middle" class="s-text-soft">(§7)</text></a>
+      <rect x="20" y="320" width="720" height="56" rx="8" fill="none" class="s-line" stroke-dasharray="5 4"/>
+      <text x="380" y="344" text-anchor="middle" class="s-text">Coming next: the mechanism (context switch, Ch. 04) and the policies (schedulers, Ch. 05–08)</text>
+      <text x="380" y="364" text-anchor="middle" class="s-text-soft">and the real UNIX API: fork(), exec(), wait() in Ch. 03</text>
+    </svg>
+    </div>
+    <figcaption><strong>Figure 1.</strong> A process is the OS's abstraction of a running program. Everything else in this chapter describes what it contains, how it is created, and how the OS keeps track of it.</figcaption>
+  </figure>
+</section>
+
+<!-- ================================================================ CONCEPTS -->
+<section class="block" id="concepts">
+  <h2>Core concepts</h2>
+
+  <!-- ------------------------------------------------ 1 -->
+  <article class="concept" id="c-share">
+    <h3><span class="tag">Concept 1 / 7</span>Time sharing and space sharing</h3>
+    <p class="lead">The OS makes one CPU look like many by taking turns. Some other resources are shared by dividing them up instead.</p>
+    <p>A typical machine seems to run tens or hundreds of programs at once, but it has only a few physical CPUs. The OS creates the illusion of a nearly endless supply of CPUs by <a class="gl" data-term="time-sharing">time sharing</a>: run one process for a little while, stop it, run another, and so on. The price is performance — if the CPU is shared, each process runs more slowly than it would alone.</p>
+    <div class="box crux">
+      <p class="box-label">The crux</p>
+      <p>How can the OS provide the illusion of a nearly endless supply of CPUs, when only a few physical CPUs exist?</p>
+    </div>
+    <div class="box definition">
+      <p class="box-label">Definition</p>
+      <p><strong>Time sharing</strong>: a resource is used by one entity for a short time, then by another, and so on (CPU, a network link). <strong>Space sharing</strong>: a resource is divided into parts, each given to one user for as long as it needs it (disk blocks, memory).</p>
+    </div>
+    <div class="box analogy">
+      <p class="box-label">Analogy</p>
+      <p>The book's dialogue uses a peach: many eaters each want their own peach, but there is only one. Since most eaters are napping most of the time, you can quietly hand the peach to whoever is awake. Each eater believes they have a peach of their own. A meeting room booked by the hour is the same idea (time sharing); a bookshelf where each person owns a shelf is space sharing.</p>
+      <p class="breaks"><strong>Where it breaks down:</strong> handing over a peach is free. Switching a CPU between processes is not — the OS must save and restore state, which costs time. That overhead is why the OS can't switch infinitely often.</p>
+    </div>
+    <figure class="viz">
+      <div class="scroll-x">
+      <svg viewBox="0 0 700 180" role="img" aria-labelledby="ts-t ts-d" style="min-width:520px">
+        <title id="ts-t">Time sharing versus space sharing</title>
+        <desc id="ts-d">Left: one CPU shown over time, used in turn by processes A, B, A, C, B. Right: a disk shown as a grid of blocks, each block permanently assigned to file X, file Y or left free.</desc>
+        <text x="160" y="18" text-anchor="middle" class="s-head">Time sharing — the CPU</text>
+        <rect x="10" y="40" width="58" height="40" rx="5" class="s-user"/><text x="39" y="65" text-anchor="middle" class="s-text">A</text>
+        <rect x="72" y="40" width="58" height="40" rx="5" class="s-hw"/><text x="101" y="65" text-anchor="middle" class="s-text">B</text>
+        <rect x="134" y="40" width="58" height="40" rx="5" class="s-user"/><text x="163" y="65" text-anchor="middle" class="s-text">A</text>
+        <rect x="196" y="40" width="58" height="40" rx="5" class="s-violet"/><text x="225" y="65" text-anchor="middle" class="s-text">C</text>
+        <rect x="258" y="40" width="58" height="40" rx="5" class="s-hw"/><text x="287" y="65" text-anchor="middle" class="s-text">B</text>
+        <path d="M10 100h306" class="s-arrow"/><text x="316" y="118" text-anchor="end" class="s-text-soft">time →</text>
+        <text x="10" y="150" class="s-text-soft">whole resource, one user at a time</text>
+        <line x1="350" y1="10" x2="350" y2="170" class="s-line" stroke-dasharray="3 4"/>
+        <text x="530" y="18" text-anchor="middle" class="s-head">Space sharing — the disk</text>
+        <g>
+          <rect x="390" y="34" width="44" height="30" rx="4" class="s-user"/><rect x="438" y="34" width="44" height="30" rx="4" class="s-user"/><rect x="486" y="34" width="44" height="30" rx="4" class="s-box"/><rect x="534" y="34" width="44" height="30" rx="4" class="s-violet"/><rect x="582" y="34" width="44" height="30" rx="4" class="s-violet"/><rect x="630" y="34" width="44" height="30" rx="4" class="s-box"/>
+          <rect x="390" y="70" width="44" height="30" rx="4" class="s-violet"/><rect x="438" y="70" width="44" height="30" rx="4" class="s-box"/><rect x="486" y="70" width="44" height="30" rx="4" class="s-user"/><rect x="534" y="70" width="44" height="30" rx="4" class="s-box"/><rect x="582" y="70" width="44" height="30" rx="4" class="s-violet"/><rect x="630" y="70" width="44" height="30" rx="4" class="s-user"/>
+        </g>
+        <text x="390" y="130" class="s-text-soft">blocks owned by file X (green) or file Y (violet);</text>
+        <text x="390" y="148" class="s-text-soft">each keeps its block until the file is deleted</text>
+      </svg>
+      </div>
+      <figcaption><strong>Figure 2 — comparison.</strong> Time sharing hands the whole resource around in turns; space sharing splits it into pieces.</figcaption>
+    </figure>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>Time sharing</th><th>Space sharing</th></tr></thead>
+        <tbody>
+          <tr><td>How</td><td>Take turns using the whole resource</td><td>Split the resource into parts</td></tr>
+          <tr><td>Typical resources</td><td>CPU, network link</td><td>Disk blocks, memory</td></tr>
+          <tr><td>Cost</td><td>Switching overhead; each user runs slower</td><td>Fragmentation; resource can fill up</td></tr>
+          <tr><td>OS needs</td><td>A way to stop and resume users (Ch. 04)</td><td>A way to track who owns which part (Ch. 13, 32)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>An everyday example: run a CPU-bound program alone, then run two copies pinned to one core. Each copy takes about twice as long — the cost of time sharing.</p>
+    <div class="box gotcha">
+      <p class="box-label">⚠ Common mistake</p>
+      <div class="wr-grid">
+        <div class="wrong"><div class="label">✗ "Time sharing makes programs run at the same time."</div><p>On one CPU, only one process executes at any instant.</p></div>
+        <div class="right"><div class="label">✓ "Time sharing makes programs <em>appear</em> to run at the same time."</div><p>They take turns fast enough that it looks simultaneous. Real parallelism needs multiple CPUs (Ch. 08).</p></div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ------------------------------------------------ 2 -->
+  <article class="concept" id="c-mp">
+    <h3><span class="tag">Concept 2 / 7</span>Mechanisms vs policies</h3>
+    <p class="lead">Separate <em>how</em> something is done from the decision about <em>which</em> thing to do.</p>
+    <p>To virtualize the CPU well, the OS needs two layers. Low-level <a class="gl" data-term="mechanism">mechanisms</a> are methods or protocols that implement a piece of functionality — for example, the <a class="gl" data-term="context-switch">context switch</a>, which stops one program and starts another on a CPU. On top sit <a class="gl" data-term="policy">policies</a>: algorithms that make decisions — for example, the scheduling policy that picks which ready process runs next, perhaps using history ("who ran most in the last minute?"), workload knowledge, or a performance goal (fast response vs. high throughput).</p>
+    <div class="box definition">
+      <p class="box-label">Definition</p>
+      <p>A <strong>mechanism</strong> answers a <em>how</em> question (how does the OS perform a context switch?). A <strong>policy</strong> answers a <em>which</em> question (which process should run right now?). Keeping them separate is a form of modularity: you can change the policy without rewriting the mechanism.</p>
+    </div>
+    <div class="box analogy">
+      <p class="box-label">Analogy</p>
+      <p>A train network. The tracks, switches and signals are the mechanism — they can route any train anywhere. The timetable is the policy — it decides which train goes where and when. A new timetable doesn't require new tracks.</p>
+      <p class="breaks"><strong>Where it breaks down:</strong> in practice the boundary leaks. Some policies need information or hooks the mechanism doesn't provide, so changing policy can still force mechanism changes.</p>
+    </div>
+    <figure class="viz">
+      <svg viewBox="0 0 640 200" role="img" aria-labelledby="mp-t mp-d">
+        <title id="mp-t">Policy on top of mechanism</title>
+        <desc id="mp-d">A policy box labelled which process should run, with examples FIFO, shortest first, round robin, sends a decision such as run B down to a mechanism box labelled how to switch, the context switch, which acts on the CPU.</desc>
+        <defs><marker id="mpa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="f-muted"/></marker></defs>
+        <rect x="120" y="8" width="400" height="56" rx="8" class="s-kernel"/>
+        <text x="320" y="32" text-anchor="middle" class="s-head">POLICY — which process runs next?</text>
+        <text x="320" y="52" text-anchor="middle" class="s-text-soft">FIFO · shortest first · round robin · … (swappable)</text>
+        <path d="M320 64v30" class="s-arrow" marker-end="url(#mpa)"/><text x="330" y="84" class="s-text-soft">decision: "run B"</text>
+        <rect x="120" y="96" width="400" height="56" rx="8" class="s-kernel"/>
+        <text x="320" y="120" text-anchor="middle" class="s-head">MECHANISM — how to switch</text>
+        <text x="320" y="140" text-anchor="middle" class="s-text-soft">save A's registers, restore B's, jump into B</text>
+        <path d="M320 152v22" class="s-arrow" marker-end="url(#mpa)"/>
+        <rect x="220" y="174" width="200" height="24" rx="6" class="s-hw"/><text x="320" y="191" text-anchor="middle" class="s-text">CPU</text>
+      </svg>
+      <figcaption><strong>Figure 3 — layers.</strong> The policy decides; the mechanism carries the decision out.</figcaption>
+    </figure>
+    <p>Here's the idea in code. <code>run_all</code> is the "mechanism" — it repeatedly asks a policy function which process to run and runs it. Swapping the policy changes the order without touching the mechanism.</p>
+    <div class="code" id="code-policy">
+      <div class="code-head"><span class="fname">policy.c</span><span class="badge">our example</span></div>
+      <div class="code-body"><pre><code class="language-c">
+#include &lt;stdio.h&gt;
+
+struct proc { const char *name; int work; int done; };
+
+typedef int (*policy_fn)(struct proc *p, int n);
+
+/* Policy 1: first in the list that isn't finished (FIFO). */
+static int pick_fifo(struct proc *p, int n) {
+    for (int i = 0; i &lt; n; i++)
+        if (!p[i].done) return i;
+    return -1;
+}
+
+/* Policy 2: the unfinished process with the least work (shortest first). */
+static int pick_shortest(struct proc *p, int n) {
+    int best = -1;
+    for (int i = 0; i &lt; n; i++)
+        if (!p[i].done &amp;&amp; (best &lt; 0 || p[i].work &lt; p[best].work)) best = i;
+    return best;
+}
+
+/* Mechanism: repeatedly ask the policy which process to run, then run it. */
+static void run_all(struct proc *p, int n, policy_fn pick, const char *label) {
+    printf("%-9s:", label);
+    int t = 0, i;
+    while ((i = pick(p, n)) &gt;= 0) {
+        t += p[i].work;                     // "run" it to completion
+        p[i].done = 1;
+        printf(" %s(ends at %d)", p[i].name, t);
+    }
+    printf("\n");
+    for (int k = 0; k &lt; n; k++) p[k].done = 0;   // reset for the next run
+}
+
+int main(void) {
+    struct proc list[] = { {"A", 30, 0}, {"B", 10, 0}, {"C", 20, 0} };
+    run_all(list, 3, pick_fifo, "FIFO");
+    run_all(list, 3, pick_shortest, "shortest");
+    return 0;
+}</code></pre></div>
+    </div>
+    <ol class="annot" data-for="code-policy">
+      <li data-lines="3"><span class="ln">L3</span><span>A toy process: a name, how much work it needs, and whether it's finished.</span></li>
+      <li data-lines="5"><span class="ln">L5</span><span>A policy is any function that, given the list, returns the index of the process to run (or −1 if none).</span></li>
+      <li data-lines="8-12,15-20"><span class="ln">L8–20</span><span>Two policies with the same signature: FIFO, and "shortest job first".</span></li>
+      <li data-lines="23-33"><span class="ln">L23–33</span><span>The mechanism. It knows nothing about <em>why</em> a process was picked — it just runs whatever the policy names.</span></li>
+      <li data-lines="37-38"><span class="ln">L37–38</span><span>Same processes, same mechanism, different policy → different completion times.</span></li>
+    </ol>
+    <div class="code term">
+      <div class="code-head"><span class="fname">terminal — real run</span></div>
+      <div class="code-body"><pre><code><span class="prompt">$ </span>gcc -Wall -o policy policy.c &amp;&amp; ./policy
+FIFO     : A(ends at 30) B(ends at 40) C(ends at 60)
+shortest : B(ends at 10) C(ends at 30) A(ends at 60)</code></pre></div>
+    </div>
+    <p>With "shortest first", B and C finish much earlier and nobody finishes later than before — a first taste of why scheduling policy matters (Ch. 05).</p>
+    <div class="box gotcha">
+      <p class="box-label">⚠ Common mistake</p>
+      <div class="wr-grid">
+        <div class="wrong"><div class="label">✗ Policy baked into the mechanism</div><div class="code no-gutter"><div class="code-body"><pre><code class="language-c">void switch_to_next(void) {
+    /* always pick the next one in the array */
+    next = (cur + 1) % n;
+    save(cur); restore(next);
+}</code></pre></div></div></div>
+        <div class="right"><div class="label">✓ Policy passed in</div><div class="code no-gutter"><div class="code-body"><pre><code class="language-c">void switch_to_next(policy_fn pick) {
+    next = pick(list, n);   /* policy decides */
+    save(cur); restore(next);   /* mechanism */
+}</code></pre></div></div></div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ------------------------------------------------ 3 -->
+  <article class="concept" id="c-proc">
+    <h3><span class="tag">Concept 3 / 7</span>What a process is: its machine state</h3>
+    <p class="lead">A process is a running program — and you can describe it completely by listing the parts of the machine it can read or change.</p>
+    <p>The program itself is lifeless: bytes on disk, waiting. A process is what the OS makes of those bytes once they're running. To pin it down, take an inventory of its <a class="gl" data-term="machine-state">machine state</a>:</p>
+    <ul>
+      <li><strong>Memory</strong> — the instructions and the data the program reads and writes. The memory a process can address is its <a class="gl" data-term="address-space">address space</a>.</li>
+      <li><strong>Registers</strong> — many instructions read and write them. Some are special: the <a class="gl" data-term="program-counter">program counter</a> (PC, also called the instruction pointer, IP) says which instruction runs next; the <strong>stack pointer</strong> and <strong>frame pointer</strong> manage the stack of function parameters, local variables and return addresses.</li>
+      <li><strong>I/O information</strong> — for example, the list of files the process currently has open.</li>
+    </ul>
+    <div class="box definition">
+      <p class="box-label">Definition</p>
+      <p>A <strong>process</strong> is the OS's abstraction of a running program. At any instant it is summarized by its machine state: its address space (memory), its register values (including PC and stack pointer), and its I/O state (such as open files).</p>
+    </div>
+    <div class="box analogy">
+      <p class="box-label">Analogy</p>
+      <p>A program is a recipe in a cookbook; a process is someone actually cooking it. To pause the cook and let someone else finish later, you'd need to record everything: which step they're on (PC), what's on the counter (memory), what's in their hands (registers), which pots are on the stove (open files).</p>
+      <p class="breaks"><strong>Where it breaks down:</strong> one recipe can be cooked by many cooks at once. That holds here too — run the same program twice and you get two separate processes, each with its own state. A recipe, though, never changes itself; a program's memory can.</p>
+    </div>
+    <figure class="viz">
+      <div class="scroll-x">
+      <svg viewBox="0 0 700 320" role="img" aria-labelledby="ms-t ms-d" style="min-width:560px">
+        <title id="ms-t">The machine state of a process</title>
+        <desc id="ms-d">An address space drawn top to bottom: code at low addresses, static data, then the heap growing down the page toward higher addresses, free space, and the stack at the top of the address range growing toward lower addresses. Registers on the right: the program counter points into the code, the stack pointer points into the stack. Below, an I/O table lists file descriptors 0, 1 and 2 for standard input, output and error, and 3 for an open file.</desc>
+        <defs><marker id="msa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="f-muted"/></marker></defs>
+        <text x="130" y="16" text-anchor="middle" class="s-head">Address space (memory)</text>
+        <rect x="40" y="26" width="180" height="40" rx="5" class="s-box"/><text x="130" y="51" text-anchor="middle" class="s-text">code</text>
+        <rect x="40" y="70" width="180" height="40" rx="5" class="s-box"/><text x="130" y="95" text-anchor="middle" class="s-text">static data</text>
+        <rect x="40" y="114" width="180" height="40" rx="5" class="s-user"/><text x="130" y="139" text-anchor="middle" class="s-text">heap  (grows ↓)</text>
+        <rect x="40" y="158" width="180" height="80" rx="5" fill="none" class="s-line" stroke-dasharray="4 4"/><text x="130" y="203" text-anchor="middle" class="s-text-soft">(free)</text>
+        <rect x="40" y="242" width="180" height="40" rx="5" class="s-user"/><text x="130" y="267" text-anchor="middle" class="s-text">stack  (grows ↑)</text>
+        <text x="30" y="34" text-anchor="end" class="s-text-soft">low</text><text x="30" y="282" text-anchor="end" class="s-text-soft">high</text>
+        <text x="130" y="306" text-anchor="middle" class="s-text-soft">addresses increase downward in this drawing</text>
+        <rect x="320" y="26" width="160" height="120" rx="6" class="s-hw"/>
+        <text x="400" y="48" text-anchor="middle" class="s-head">Registers</text>
+        <text x="340" y="76" class="s-text">PC</text><text x="340" y="100" class="s-text">SP</text><text x="340" y="124" class="s-text">eax, ebx…</text>
+        <path d="M336 72 C 280 60, 260 46, 222 46" class="s-arrow" marker-end="url(#msa)"/>
+        <path d="M336 96 C 290 120, 280 250, 222 258" class="s-arrow" marker-end="url(#msa)"/>
+        <text x="270" y="38" class="s-text-soft">next instruction</text>
+        <text x="236" y="230" class="s-text-soft">top of stack</text>
+        <rect x="320" y="170" width="360" height="112" rx="6" class="s-kernel"/>
+        <text x="500" y="192" text-anchor="middle" class="s-head">I/O state: open files</text>
+        <text x="340" y="216" class="s-text">fd 0 → keyboard / terminal  (stdin)</text>
+        <text x="340" y="236" class="s-text">fd 1 → terminal  (stdout)</text>
+        <text x="340" y="256" class="s-text">fd 2 → terminal  (stderr)</text>
+        <text x="340" y="276" class="s-text">fd 3 → notes.txt</text>
+      </svg>
+      </div>
+      <figcaption><strong>Figure 4 — memory layout.</strong> The three parts of a process's machine state. Where exactly each region sits varies by system; the order code → static data → heap … stack is typical on Linux.</figcaption>
+    </figure>
+    <p>You can see these regions in a real process by printing an address from each:</p>
+    <div class="code" id="code-layout">
+      <div class="code-head"><span class="fname">layout.c</span><span class="badge">our example</span></div>
+      <div class="code-body"><pre><code class="language-c">
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+
+int initialized = 42;          // static data (.data)
+int zeroed;                    // static data (.bss)
+
+int main(int argc, char *argv[]) {
+    int local = 7;                          // lives on the stack
+    int *heap = malloc(sizeof(int));        // lives on the heap
+
+    printf("code   (main)        : %p\n", (void *) main);
+    printf("static (initialized) : %p\n", (void *) &amp;initialized);
+    printf("static (zeroed)      : %p\n", (void *) &amp;zeroed);
+    printf("heap   (malloc)      : %p\n", (void *) heap);
+    printf("stack  (local)       : %p\n", (void *) &amp;local);
+    printf("argc = %d, argv[0] = %s\n", argc, argv[0]);
+
+    free(heap);
+    return 0;
+}</code></pre></div>
+    </div>
+    <ol class="annot" data-for="code-layout">
+      <li data-lines="4-5"><span class="ln">L4–5</span><span>Globals live in the static-data region, loaded from (or, for zeroed ones, reserved by) the executable.</span></li>
+      <li data-lines="8"><span class="ln">L8</span><span>A local variable lives on the stack, in <code>main</code>'s frame.</span></li>
+      <li data-lines="9"><span class="ln">L9</span><span><code>malloc</code> hands back memory from the heap.</span></li>
+      <li data-lines="11"><span class="ln">L11</span><span>The address of a function is an address in the code region. (Casting a function pointer to <code>void *</code> is allowed on Linux/POSIX, though not guaranteed by ISO C.)</span></li>
+      <li data-lines="16"><span class="ln">L16</span><span><code>argc</code>/<code>argv</code> were placed on the stack by the OS before <code>main</code> started — see concept 5.</span></li>
+    </ol>
+    <div class="code term">
+      <div class="code-head"><span class="fname">terminal — real run</span></div>
+      <div class="code-body"><pre><code><span class="prompt">$ </span>gcc -Wall -o layout layout.c &amp;&amp; ./layout
+code   (main)        : 0x55667c2de1a9
+static (initialized) : 0x55667c2e1010
+static (zeroed)      : 0x55667c2e1018
+heap   (malloc)      : 0x5566b2cbb2a0
+stack  (local)       : 0x7ffe32690bac
+argc = 1, argv[0] = ./layout</code></pre></div>
+    </div>
+    <p>Code &lt; static data &lt; heap, and the stack far above them — the layout in Figure 4. And every process starts with three open files. List them for your shell:</p>
+    <div class="code term">
+      <div class="code-head"><span class="fname">terminal — illustrative (targets depend on how you're logged in)</span></div>
+      <div class="code-body"><pre><code><span class="prompt">$ </span>ls -l /proc/$$/fd
+lrwx------ 1 me me 64 … 0 -&gt; /dev/pts/0
+lrwx------ 1 me me 64 … 1 -&gt; /dev/pts/0
+lrwx------ 1 me me 64 … 2 -&gt; /dev/pts/0</code></pre></div>
+    </div>
+    <div class="box gotcha">
+      <p class="box-label">⚠ Common mistake</p>
+      <div class="wr-grid">
+        <div class="wrong"><div class="label">✗ "A program and a process are the same thing."</div><p>Then running <code>./layout</code> twice would give you one thing, not two.</p></div>
+        <div class="right"><div class="label">✓ One program, many processes</div><p>The program is the file on disk. Each run creates a new process with its own PID, memory, registers and open files.</p></div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ------------------------------------------------ 4 -->
+  <article class="concept" id="c-api">
+    <h3><span class="tag">Concept 4 / 7</span>The process API</h3>
+    <p class="lead">Every modern OS offers some way to create, destroy, wait for, control and inspect processes.</p>
+    <p>The book defers the real UNIX calls to the next chapter, and first lists what any process interface must include. Here is that list, with the UNIX names you'll meet in Ch. 03 alongside:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Operation</th><th>What it does</th><th>UNIX example (shell / system call)</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Create</strong></td><td>Start a new process to run a program — typing a command, double-clicking an icon.</td><td><code>./prog</code> · <code>fork()</code> + <code>exec()</code></td></tr>
+          <tr><td><strong>Destroy</strong></td><td>Forcefully stop a runaway process (most just exit on their own).</td><td><code>kill PID</code> · <code>kill()</code></td></tr>
+          <tr><td><strong>Wait</strong></td><td>Wait until a process stops running.</td><td><code>wait</code> · <code>wait()</code>, <code>waitpid()</code></td></tr>
+          <tr><td><strong>Misc. control</strong></td><td>E.g. suspend a process for a while, then resume it.</td><td><code>kill -STOP</code> / <code>kill -CONT</code>, Ctrl-Z / <code>fg</code></td></tr>
+          <tr><td><strong>Status</strong></td><td>How long has it run? What state is it in?</td><td><code>ps</code>, <code>top</code>, <code>/proc/PID/status</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="box definition">
+      <p class="box-label">Definition</p>
+      <p>The <strong>process API</strong> is the set of operations an OS exports for managing processes: create, destroy, wait, miscellaneous control (such as suspend/resume), and status.</p>
+    </div>
+    <div class="box analogy">
+      <p class="box-label">Analogy</p>
+      <p>A media player's controls: play a new track (create), stop it (destroy), wait for the track to end (wait), pause/resume (control), and the progress bar (status).</p>
+      <p class="breaks"><strong>Where it breaks down:</strong> a media player has one track at a time. The OS manages hundreds of processes at once, and processes can use the API on each other — a shell creates, waits for and kills its children.</p>
+    </div>
+    <p>All five operations, on a real Linux machine. <code>spin</code> is a one-line program that loops forever (<code>int main(void) { while (1) ; }</code>):</p>
+    <div class="code term" id="code-api">
+      <div class="code-head"><span class="fname">terminal — real run</span></div>
+      <div class="code-body"><pre><code><span class="prompt">$ </span>./spin &amp;                      <span class="cmt"># create</span>
+<span class="prompt">$ </span>sleep 100 &amp;                   <span class="cmt"># create another</span>
+<span class="prompt">$ </span>ps -o pid,stat,cmd            <span class="cmt"># status</span>
+  PID STAT CMD
+  290 R    ./spin
+  291 S    sleep 100
+<span class="prompt">$ </span>kill -STOP 290                <span class="cmt"># control: suspend</span>
+  290 T    ./spin
+<span class="prompt">$ </span>kill -CONT 290                <span class="cmt"># control: resume</span>
+  290 R    ./spin
+<span class="prompt">$ </span>grep State /proc/291/status   <span class="cmt"># status, from the kernel's own record</span>
+State:	S (sleeping)
+<span class="prompt">$ </span>kill 290 291                  <span class="cmt"># destroy</span></code></pre></div>
+    </div>
+    <ol class="annot" data-for="code-api">
+      <li data-lines="3-6"><span class="ln">L3–6</span><span><code>R</code> = runnable (running or ready to run). <code>S</code> = sleeping — <code>sleep</code> is waiting for a timer, i.e. <em>blocked</em> in the book's terms.</span></li>
+      <li data-lines="7-8"><span class="ln">L7–8</span><span><code>T</code> = stopped by a signal: suspended until someone resumes it.</span></li>
+      <li data-lines="11-12"><span class="ln">L11–12</span><span><code>/proc/PID/status</code> is a window onto the kernel's record of the process.</span></li>
+    </ol>
+    <div class="box gotcha">
+      <p class="box-label">⚠ Common mistake</p>
+      <p>Treating a suspended process as dead. <code>kill -STOP</code> (or Ctrl-Z in a shell) only pauses it: it still holds its memory and open files. Resume it or end it.</p>
+      <div class="wr-grid">
+        <div class="wrong"><div class="label">✗ Paused with Ctrl-Z, then forgotten</div><div class="code no-gutter term"><div class="code-body"><pre><code>^Z
+[1]+  Stopped    ./server</code></pre></div></div></div>
+        <div class="right"><div class="label">✓ Resume or end it</div><div class="code no-gutter term"><div class="code-body"><pre><code><span class="prompt">$ </span>fg          <span class="cmt"># or: bg, or kill %1</span></code></pre></div></div></div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ------------------------------------------------ 5 -->
+  <article class="concept" id="c-create">
+    <h3><span class="tag">Concept 5 / 7</span>Creating a process: from program to process</h3>
+    <p class="lead">Before a program can run, the OS must load it, give it a stack and heap, set up its I/O, and then jump to <code>main()</code>.</p>
+    <p>Programs live on disk (or SSD) in an executable format. To run one, the OS does roughly this:</p>
+    <ol>
+      <li><strong>Load code and static data</strong> into the process's address space. Early systems did this <em>eagerly</em> — all at once before running. Modern OSes do it <em>lazily</em>: they load pieces only when the program first needs them (this relies on paging and swapping, Ch. 14–17).</li>
+      <li><strong>Create the stack</strong> — memory for local variables, parameters and return addresses — and fill in <code>main</code>'s arguments, <code>argc</code> and <code>argv</code>.</li>
+      <li><strong>Create the heap</strong> — small at first; it grows as the program calls <code>malloc()</code> and the OS hands over more memory.</li>
+      <li><strong>Set up I/O</strong> — on UNIX, three open file descriptors: standard input, output and error.</li>
+      <li><strong>Start running at the entry point</strong> — jump to <code>main()</code> through a special mechanism (Ch. 04), handing the CPU to the new process.</li>
+    </ol>
+    <div class="box definition">
+      <p class="box-label">Definition</p>
+      <p><strong>Process creation</strong>: the OS turns a program into a process by loading its code and static data into a new address space (eagerly or lazily), allocating and initializing the stack (with <code>argc</code>/<code>argv</code>) and heap, setting up I/O (file descriptors 0, 1, 2), and transferring control to the program's entry point.</p>
+    </div>
+    <div class="box analogy">
+      <p class="box-label">Analogy</p>
+      <p>Setting up a stage play: bring the script and props from storage (load), clear a workspace for the actors (stack and heap), connect the microphones and lights (I/O), then raise the curtain (jump to <code>main</code>).</p>
+      <p class="breaks"><strong>Where it breaks down:</strong> a theatre brings all props on stage before the curtain. Modern OSes deliberately don't: they fetch each piece of the program only when it's first touched, so huge programs start quickly.</p>
+    </div>
+    <figure class="viz" id="loader">
+      <div class="scroll-x">
+      <svg viewBox="0 0 700 300" role="img" aria-labelledby="ld-t ld-d" style="min-width:540px">
+        <title id="ld-t">Step-by-step: loading a program into a process</title>
+        <desc id="ld-d">A disk on the left holds the program's code and static data. Memory on the right gradually fills in: code and static data are copied in, then a stack is created holding argc and argv, then a heap, then file descriptors 0, 1 and 2 are opened, and finally the program counter jumps to main.</desc>
+        <defs><marker id="lda" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="f-muted"/></marker></defs>
+        <text x="100" y="18" text-anchor="middle" class="s-head">Disk</text>
+        <rect x="20" y="28" width="160" height="150" rx="8" class="s-violet"/>
+        <text x="100" y="50" text-anchor="middle" class="s-text-soft">prog (executable)</text>
+        <rect x="35" y="62" width="130" height="32" rx="5" class="s-box"/><text x="100" y="83" text-anchor="middle" class="s-text">code</text>
+        <rect x="35" y="100" width="130" height="32" rx="5" class="s-box"/><text x="100" y="121" text-anchor="middle" class="s-text">static data</text>
+        <text x="460" y="18" text-anchor="middle" class="s-head">Memory: the new process</text>
+        <rect x="300" y="28" width="320" height="262" rx="8" fill="none" class="s-line"/>
+        <g class="ld-step" data-step="1">
+          <path d="M180 95 C 240 95, 250 60, 312 60" class="s-arrow" marker-end="url(#lda)"/>
+          <rect x="314" y="40" width="190" height="30" rx="5" class="s-user"/><text x="409" y="60" text-anchor="middle" class="s-text">code</text>
+          <rect x="314" y="74" width="190" height="30" rx="5" class="s-user"/><text x="409" y="94" text-anchor="middle" class="s-text">static data</text>
+        </g>
+        <g class="ld-step" data-step="3">
+          <rect x="314" y="108" width="190" height="30" rx="5" class="s-user"/><text x="409" y="128" text-anchor="middle" class="s-text">heap (small at first)</text>
+        </g>
+        <g class="ld-step" data-step="2">
+          <rect x="314" y="238" width="190" height="40" rx="5" class="s-user"/><text x="409" y="256" text-anchor="middle" class="s-text">stack</text><text x="409" y="271" text-anchor="middle" class="s-text-soft">argc = 2, argv = {"prog","x"}</text>
+        </g>
+        <g class="ld-step" data-step="4">
+          <rect x="516" y="40" width="94" height="76" rx="5" class="s-kernel"/><text x="563" y="60" text-anchor="middle" class="s-text-soft">open files</text><text x="563" y="80" text-anchor="middle" class="s-text">fd 0 1 2</text><text x="563" y="100" text-anchor="middle" class="s-text-soft">in / out / err</text>
+        </g>
+        <g class="ld-step" data-step="5">
+          <rect x="516" y="130" width="94" height="56" rx="5" class="s-hw"/><text x="563" y="152" text-anchor="middle" class="s-text-soft">CPU: PC =</text><text x="563" y="172" text-anchor="middle" class="s-text">main</text>
+          <path d="M516 158 C 470 150, 520 60, 506 56" class="s-arrow" marker-end="url(#lda)"/>
+        </g>
+      </svg>
+      </div>
+      <div class="controls">
+        <button class="btn primary" type="button" id="ld-play">▶ Play</button>
+        <button class="btn" type="button" id="ld-step">Step</button>
+        <button class="btn" type="button" id="ld-reset">↺ Reset</button>
+      </div>
+      <div class="status-line" id="ld-status" aria-live="polite">Press Step to watch the OS turn <code>prog</code> into a process.</div>
+      <figcaption><strong>Figure 5 — process creation, step by step.</strong> Simplified: in reality the loading in step 1 is lazy (pages arrive on first use).</figcaption>
+    </figure>
+    <p>You can observe step 2 from inside the program: the OS has already placed the command-line arguments on the stack before <code>main</code> runs.</p>
+    <div class="code term">
+      <div class="code-head"><span class="fname">terminal — real run (layout.c from concept 3)</span></div>
+      <div class="code-body"><pre><code><span class="prompt">$ </span>./layout x y
+…
+argc = 3, argv[0] = ./layout</code></pre></div>
+    </div>
+    <div class="box gotcha">
+      <p class="box-label">⚠ Common mistake</p>
+      <div class="wr-grid">
+        <div class="wrong"><div class="label">✗ "The whole program is read into memory before it starts."</div><p>True of early systems; on a modern OS a 200 MB binary would start painfully slowly.</p></div>
+        <div class="right"><div class="label">✓ Loaded lazily</div><p>The OS sets up the address space, then brings in each piece of code or data the first time it's touched. Parts that are never used are never read from disk.</p></div>
+      </div>
+    </div>
+    <details class="hood">
+      <summary>Under the hood: what Linux actually does <span class="chip">advanced</span></summary>
+      <div class="details-body">
+        <p>On Linux, a new program is started with the <code>execve()</code> system call (Ch. 03). The kernel reads the ELF executable's headers, sets up mappings in the new address space for the code and data segments (without copying them yet), maps a stack, copies <code>argv</code> and the environment onto it, and arranges for the process to start at the program's entry point — for a dynamically linked program, first in the dynamic loader, which loads shared libraries such as libc and eventually calls <code>main</code>. When the program first touches a code or data page that isn't in memory yet, a page fault brings it in from disk (Ch. 17).</p>
+      </div>
+    </details>
+  </article>
+
+  <!-- ------------------------------------------------ 6 -->
+  <article class="concept" id="c-states">
+    <h3><span class="tag">Concept 6 / 7</span>Process states</h3>
+    <p class="lead">At any moment a process is running, ready to run, or blocked waiting for something.</p>
+    <ul>
+      <li><strong>Running</strong> — executing instructions on a processor.</li>
+      <li><strong>Ready</strong> — able to run, but the OS has chosen not to run it right now.</li>
+      <li><strong>Blocked</strong> — waiting for some event before it can run, e.g. it started a disk read and is waiting for the data. Meanwhile another process can use the CPU.</li>
+    </ul>
+    <p>The OS moves processes between ready and running at its own discretion: ready → running is being <strong>scheduled</strong>; running → ready is being <strong>descheduled</strong>. Starting I/O moves a process to blocked; when the I/O completes it becomes ready again (and may or may not run immediately — the OS decides).</p>
+    <div class="box definition">
+      <p class="box-label">Definition</p>
+      <p>A process's <a class="gl" data-term="process-state">state</a> records whether it is <strong>running</strong>, <strong>ready</strong> or <strong>blocked</strong>. Real systems add an <strong>initial</strong> state while the process is being created and a <strong>final</strong> state after it exits but before it is cleaned up — on UNIX the <a class="gl" data-term="zombie">zombie</a> state.</p>
+    </div>
+    <div class="box analogy">
+      <p class="box-label">Analogy</p>
+      <p>A doctor's office with one doctor. The patient in the exam room is <em>running</em>. Patients in the waiting room are <em>ready</em>. A patient sent off for a blood test is <em>blocked</em>: they can't see the doctor until the results come back, and then they return to the waiting room.</p>
+      <p class="breaks"><strong>Where it breaks down:</strong> a waiting room is first-come-first-served by habit. The OS can pick any ready process it likes — that choice is the scheduling policy (Ch. 05).</p>
+    </div>
+    <figure class="viz" id="sm-fig">
+      <div class="scroll-x">
+      <svg viewBox="0 0 700 300" role="img" aria-labelledby="sm-t sm-d" style="min-width:540px">
+        <title id="sm-t">Process state transitions</title>
+        <desc id="sm-d">State machine. A new process enters the ready state. Ready goes to running when scheduled; running goes back to ready when descheduled. Running goes to blocked when it initiates I/O; blocked goes to ready when the I/O is done. Running goes to zombie when the process exits; the zombie disappears when the parent calls wait.</desc>
+        <defs><marker id="sma" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="f-muted"/></marker></defs>
+        <g class="sm-node" id="sm-init"><rect x="20" y="20" width="110" height="44" rx="22" class="s-box" stroke-dasharray="4 3"/><text x="75" y="47" text-anchor="middle" class="s-text">initial</text></g>
+        <g class="sm-node" id="sm-ready"><rect x="80" y="110" width="150" height="56" rx="28" class="s-box"/><text x="155" y="143" text-anchor="middle" class="s-head">Ready</text></g>
+        <g class="sm-node" id="sm-running"><rect x="430" y="110" width="150" height="56" rx="28" class="s-user"/><text x="505" y="143" text-anchor="middle" class="s-head">Running</text></g>
+        <g class="sm-node" id="sm-blocked"><rect x="255" y="228" width="150" height="56" rx="28" class="s-hw"/><text x="330" y="261" text-anchor="middle" class="s-head">Blocked</text></g>
+        <g class="sm-node" id="sm-zombie"><rect x="560" y="20" width="120" height="44" rx="22" class="s-danger" stroke-dasharray="4 3"/><text x="620" y="47" text-anchor="middle" class="s-text">zombie</text></g>
+        <path id="e-create" class="sm-edge s-arrow" d="M90 64 L 130 108" marker-end="url(#sma)"/>
+        <path id="e-sched" class="sm-edge s-arrow" d="M230 128 C 300 100, 360 100, 428 128" marker-end="url(#sma)"/>
+        <text x="330" y="96" text-anchor="middle" class="s-text-soft">scheduled</text>
+        <path id="e-desched" class="sm-edge s-arrow" d="M430 152 C 360 178, 300 178, 232 152" marker-end="url(#sma)"/>
+        <text x="330" y="186" text-anchor="middle" class="s-text-soft">descheduled</text>
+        <path id="e-io" class="sm-edge s-arrow" d="M480 166 C 460 220, 440 250, 407 256" marker-end="url(#sma)"/>
+        <text x="476" y="230" class="s-text-soft">I/O: initiate</text>
+        <path id="e-iodone" class="sm-edge s-arrow" d="M255 256 C 200 250, 170 220, 160 168" marker-end="url(#sma)"/>
+        <text x="96" y="236" class="s-text-soft">I/O: done</text>
+        <path id="e-exit" class="sm-edge s-arrow" d="M540 110 L 600 66" marker-end="url(#sma)"/>
+        <text x="585" y="98" class="s-text-soft">exit</text>
+        <path id="e-reap" class="sm-edge s-arrow" d="M680 42 h12" marker-end="url(#sma)"/>
+        <text x="620" y="82" text-anchor="middle" class="s-text-soft">parent wait() → gone</text>
+      </svg>
+      </div>
+      <div class="event-grid" role="group" aria-label="Events">
+        <button class="btn" type="button" data-ev="create">OS creates it</button>
+        <button class="btn" type="button" data-ev="sched">Scheduler picks it</button>
+        <button class="btn" type="button" data-ev="desched">Timer: deschedule</button>
+        <button class="btn" type="button" data-ev="io">It starts a disk read</button>
+        <button class="btn" type="button" data-ev="iodone">Disk read completes</button>
+        <button class="btn" type="button" data-ev="exit">It calls exit()</button>
+        <button class="btn" type="button" data-ev="reap">Parent calls wait()</button>
+      </div>
+      <div class="status-line" id="sm-status" aria-live="polite" style="margin-top:.6rem">Fire events to move one process through its life. Try an impossible one, too.</div>
+      <figcaption><strong>Figure 6 — state machine.</strong> The book's three states (solid) plus the initial and zombie states real systems add (dashed).</figcaption>
+    </figure>
+    <p>The book traces two processes through these states. With CPU-only processes, one runs to completion while the other waits as ready. When Process 0 starts an I/O, the OS runs Process 1 meanwhile:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Time</th><th>Process 0</th><th>Process 1</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>1–2</td><td>Running</td><td>Ready</td><td></td></tr>
+          <tr><td>3</td><td>Running</td><td>Ready</td><td>P0 initiates I/O</td></tr>
+          <tr><td>4–6</td><td>Blocked</td><td>Running</td><td>P0 is blocked, so P1 runs</td></tr>
+          <tr><td>7</td><td>Ready</td><td>Running</td><td>I/O done</td></tr>
+          <tr><td>8</td><td>Ready</td><td>Running</td><td>P1 now done</td></tr>
+          <tr><td>9–10</td><td>Running</td><td>—</td><td>P0 now done</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Two decisions hid in that trace: running P1 while P0 waited (keeps the CPU busy), and <em>not</em> switching back to P0 when its I/O finished at time 7. Was the second one wise? Explore both in the <a href="#lab-ps">lab</a>.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Book state</th><th>Linux <code>ps</code> STAT</th><th>Meaning on Linux</th></tr></thead>
+        <tbody>
+          <tr><td>Running / Ready</td><td><code>R</code></td><td>Runnable: on a CPU or in the run queue (Linux doesn't distinguish in <code>ps</code>)</td></tr>
+          <tr><td>Blocked</td><td><code>S</code> / <code>D</code></td><td>Sleeping: interruptible (S) or uninterruptible, usually disk I/O (D)</td></tr>
+          <tr><td>(suspended)</td><td><code>T</code></td><td>Stopped by a signal (<code>kill -STOP</code>, Ctrl-Z)</td></tr>
+          <tr><td>Final</td><td><code>Z</code></td><td>Zombie: exited, waiting for the parent to collect its status</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="box gotcha">
+      <p class="box-label">⚠ Common mistake</p>
+      <div class="wr-grid">
+        <div class="wrong"><div class="label">✗ "When the I/O finishes, the process goes straight back to running."</div><p>It goes to <em>ready</em>. Whether it runs immediately is a scheduling decision.</p></div>
+        <div class="right"><div class="label">✓ blocked → ready → (later) running</div><p>The OS may keep the current process running and run the newly ready one afterwards.</p></div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ------------------------------------------------ 7 -->
+  <article class="concept" id="c-pcb">
+    <h3><span class="tag">Concept 7 / 7</span>The process list and the PCB</h3>
+    <p class="lead">The OS is a program too, and it keeps a data structure describing every process.</p>
+    <p>To track processes, the OS keeps a <a class="gl" data-term="process-list">process list</a> — all processes that are ready, plus a note of which one is running, plus the blocked ones (so that when an I/O completes, the right process can be woken and made ready). Each entry is often called a <a class="gl" data-term="pcb">Process Control Block (PCB)</a>: a C structure holding everything the OS knows about one process.</p>
+    <p>One key field is the <strong>register context</strong>: when a process is stopped, its registers are saved there; restoring them later lets the process resume exactly where it left off. That's the heart of the <a class="gl" data-term="context-switch">context switch</a> (Ch. 04).</p>
+    <div class="box definition">
+      <p class="box-label">Definition</p>
+      <p>A <strong>PCB</strong> (process control block) is the kernel's per-process record: state, PID, memory information, saved registers, open files, parent, and so on. The <strong>process list</strong> is the collection of all PCBs.</p>
+    </div>
+    <div class="box analogy">
+      <p class="box-label">Analogy</p>
+      <p>A hospital ward's patient charts. Each chart (PCB) records who the patient is, their status, and exactly where treatment left off, so any nurse can pick up from there. The rack of charts is the process list.</p>
+      <p class="breaks"><strong>Where it breaks down:</strong> a chart is a summary for humans. The saved register context is exact — every register value, bit for bit — or the process would resume with corrupted state.</p>
+    </div>
+    <p>Here is the PCB from xv6, a small teaching OS from MIT (excerpt from the book's Figure 4.5):</p>
+    <div class="code" id="code-xv6">
+      <div class="code-head"><span class="fname">xv6 proc structure (excerpt, from the book)</span></div>
+      <div class="code-body"><pre><code class="language-c">
+// the registers xv6 will save and restore
+// to stop and subsequently restart a process
+struct context {
+  int eip;   int esp;
+  int ebx;   int ecx;   int edx;
+  int esi;   int edi;   int ebp;
+};
+
+// the different states a process can be in
+enum proc_state { UNUSED, EMBRYO, SLEEPING,
+                  RUNNABLE, RUNNING, ZOMBIE };
+
+// the information xv6 tracks about each process
+struct proc {
+  char *mem;                  // Start of process memory
+  uint sz;                    // Size of process memory
+  char *kstack;               // Bottom of kernel stack for this process
+  enum proc_state state;      // Process state
+  int pid;                    // Process ID
+  struct proc *parent;        // Parent process
+  void *chan;                 // If non-zero, sleeping on chan
+  int killed;                 // If non-zero, have been killed
+  struct file *ofile[NOFILE]; // Open files
+  struct inode *cwd;          // Current directory
+  struct context context;     // Switch here to run process
+  struct trapframe *tf;       // Trap frame for the current interrupt
+};</code></pre></div>
+    </div>
+    <ol class="annot" data-for="code-xv6">
+      <li data-lines="3-7"><span class="ln">L3–7</span><span>The saved registers (32-bit x86): <code>eip</code> is the program counter, <code>esp</code> the stack pointer.</span></li>
+      <li data-lines="10-11"><span class="ln">L10–11</span><span>xv6's states. <code>EMBRYO</code> = initial, <code>SLEEPING</code> = blocked, <code>RUNNABLE</code> = ready, <code>ZOMBIE</code> = final; <code>UNUSED</code> marks a free slot in the process table.</span></li>
+      <li data-lines="15-16"><span class="ln">L15–16</span><span>Memory: where the process's memory starts and how big it is.</span></li>
+      <li data-lines="19-20"><span class="ln">L19–20</span><span>Identity: its PID and a pointer to its parent's PCB.</span></li>
+      <li data-lines="21"><span class="ln">L21</span><span>What a blocked process is waiting for, so the OS can wake the right one.</span></li>
+      <li data-lines="23-24"><span class="ln">L23–24</span><span>I/O state: open files and current directory.</span></li>
+      <li data-lines="25"><span class="ln">L25</span><span>The register context saved here is restored to resume the process.</span></li>
+    </ol>
+    <div class="lab" id="cs-widget">
+      <h4><span class="lab-tag">TRY IT</span> Save and restore a register context</h4>
+      <p style="margin-top:0">P1 is running, so its registers live in the CPU. P2 is ready; its registers are saved in its PCB. Run some instructions, then let the timer fire.</p>
+      <div class="cs-grid">
+        <div class="cs-card" id="cs-p1"><h5>PCB · P1 <span class="st"></span></h5><dl></dl></div>
+        <div class="cs-card cs-cpu" id="cs-cpu"><h5>CPU registers</h5><dl></dl></div>
+        <div class="cs-card" id="cs-p2"><h5>PCB · P2 <span class="st"></span></h5><dl></dl></div>
+      </div>
+      <div class="controls">
+        <button class="btn" type="button" id="cs-run">Run 3 instructions</button>
+        <button class="btn primary" type="button" id="cs-switch">Timer interrupt → switch</button>
+        <button class="btn" type="button" id="cs-reset2">↺ Reset</button>
+      </div>
+      <div class="status-line" id="cs-status" aria-live="polite">P1 is running. Its saved context in the PCB is stale — the live values are in the CPU.</div>
+    </div>
+    <p>The final state matters too. When a process exits, the OS keeps its PCB around as a <strong>zombie</strong> so the parent can read the exit code. The parent's <code>wait()</code> collects it and lets the OS free the PCB.</p>
+    <div class="code" id="code-zombie">
+      <div class="code-head"><span class="fname">zombie.c</span><span class="badge">our example</span></div>
+      <div class="code-body"><pre><code class="language-c">
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;sys/wait.h&gt;
+
+int main(void) {
+    pid_t pid = fork();                 // create a child process (Chapter 03)
+    if (pid &lt; 0) { perror("fork"); exit(1); }
+    if (pid == 0) {                     // child
+        printf("child  %d: exiting with status 3\n", (int) getpid());
+        exit(3);                        // child finishes immediately...
+    }
+    sleep(2);                           // ...but the parent doesn't wait() yet
+    printf("parent %d: child %d is now a zombie:\n", (int) getpid(), (int) pid);
+    fflush(stdout);
+    char cmd[64];
+    snprintf(cmd, sizeof cmd, "ps -o pid,stat,cmd -p %d", (int) pid);
+    system(cmd);
+
+    int status;
+    waitpid(pid, &amp;status, 0);           // reap it: read exit code, free its PCB
+    printf("parent: reaped child, exit status = %d\n", WEXITSTATUS(status));
+    system(cmd);                        // the child is gone now
+    return 0;
+}</code></pre></div>
+    </div>
+    <ol class="annot" data-for="code-zombie">
+      <li data-lines="7"><span class="ln">L7</span><span><code>fork()</code> creates a copy of this process — preview of Ch. 03. It returns 0 in the child and the child's PID in the parent.</span></li>
+      <li data-lines="9-12"><span class="ln">L9–12</span><span>The child prints and exits with code 3.</span></li>
+      <li data-lines="13-18"><span class="ln">L13–18</span><span>The parent waits 2 s without calling <code>wait()</code>, then runs <code>ps</code> on the child's PID.</span></li>
+      <li data-lines="21-23"><span class="ln">L21–23</span><span><code>waitpid</code> collects the exit code; only now can the OS free the child's PCB.</span></li>
+    </ol>
+    <div class="code term">
+      <div class="code-head"><span class="fname">terminal — real run</span></div>
+      <div class="code-body"><pre><code><span class="prompt">$ </span>gcc -Wall -o zombie zombie.c &amp;&amp; ./zombie
+child  257: exiting with status 3
+parent 256: child 257 is now a zombie:
+  PID STAT CMD
+  257 Z    [zombie] <span class="bad">&lt;defunct&gt;</span>
+parent: reaped child, exit status = 3
+  PID STAT CMD</code></pre></div>
+    </div>
+    <div class="box gotcha">
+      <p class="box-label">⚠ Common mistake</p>
+      <p>Thinking you can <code>kill</code> a zombie. It has already exited — there's nothing left to kill. Only its parent can clean it up, by calling <code>wait()</code>. (If the parent itself exits, the orphaned zombie is adopted by an init-like process, which reaps it.)</p>
+      <div class="wr-grid">
+        <div class="wrong"><div class="label">✗ Has no effect</div><div class="code no-gutter term"><div class="code-body"><pre><code><span class="prompt">$ </span>kill -9 257   <span class="cmt"># still Z</span></code></pre></div></div></div>
+        <div class="right"><div class="label">✓ Parent reaps it</div><div class="code no-gutter"><div class="code-body"><pre><code class="language-c">waitpid(pid, &amp;status, 0);</code></pre></div></div></div>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ================================================================ LAB -->
+<section class="block" id="labs">
+  <h2>Interactive lab</h2>
+  <div class="lab" id="lab-ps">
+    <h3><span class="lab-tag">LAB</span> Process-state simulator</h3>
+    <p style="margin-top:0">Inspired by the book's <code>process-run.py</code> homework. Describe each process as a string of instructions: <code>c</code> = use the CPU for one tick, <code>i</code> = issue an I/O (one tick on the CPU, then blocked for the I/O length). Then pick what the OS does when a process blocks, and when an I/O completes.</p>
+    <div class="controls">
+      <label class="field" style="flex:2 1 260px">preset
+        <select id="ps-preset">
+          <option value="f43">Book Figure 4.3 — CPU only</option>
+          <option value="f44" selected>Book Figure 4.4 — CPU and I/O</option>
+          <option value="q3">I/O first, then CPU work</option>
+          <option value="q2">CPU work first, then I/O</option>
+          <option value="q6">One I/O-heavy + three CPU-heavy</option>
+          <option value="custom">Custom (edit below)</option>
+        </select>
+      </label>
+    </div>
+    <div class="ps-inputs">
+      <label>P0 <input type="text" id="ps-p0" spellcheck="false" autocomplete="off"></label>
+      <label>P1 <input type="text" id="ps-p1" spellcheck="false" autocomplete="off"></label>
+      <label>P2 <input type="text" id="ps-p2" spellcheck="false" autocomplete="off"></label>
+      <label>P3 <input type="text" id="ps-p3" spellcheck="false" autocomplete="off"></label>
+    </div>
+    <div class="controls">
+      <label class="field">I/O length: <output id="ps-io-o">3</output> ticks<input type="range" id="ps-io" min="1" max="8" value="3"></label>
+      <label class="field">when a process starts I/O
+        <select id="ps-sw"><option value="io">switch to another process</option><option value="end">keep the CPU until it finishes</option></select>
+      </label>
+      <label class="field">when an I/O completes
+        <select id="ps-done"><option value="later">keep running the current one</option><option value="immediate">run the I/O process now</option></select>
+      </label>
+    </div>
+    <div class="controls">
+      <button class="btn primary" type="button" id="ps-play">▶ Play</button>
+      <button class="btn" type="button" id="ps-step">Step 1 tick</button>
+      <button class="btn" type="button" id="ps-all">Show all</button>
+      <button class="btn" type="button" id="ps-reset">↺ Reset</button>
+    </div>
+    <div class="readout">
+      <div><div class="k">ticks</div><div class="v" id="ps-t">0</div></div>
+      <div><div class="k">CPU busy</div><div class="v" id="ps-cpu">—</div></div>
+      <div><div class="k">I/O busy</div><div class="v" id="ps-iob">—</div></div>
+    </div>
+    <div class="trace-wrap"><table class="trace" id="ps-table" aria-live="off"></table></div>
+    <p style="font-size:.9rem;color:var(--muted)"><strong>Rules of this simulator:</strong> one CPU; the OS picks the next ready process in list order after the last one that ran; an I/O occupies its process for the chosen number of ticks after the issuing tick, and the process becomes ready at the start of the following tick; a process whose last instruction is an I/O finishes when that I/O completes. The book's own simulator differs in small details, so tick counts may not match it exactly. <strong>Try:</strong> the Figure 4.4 preset reproduces the book's table. Then load "One I/O-heavy + three CPU-heavy" and compare the two "when an I/O completes" settings.</p>
+  </div>
+</section>
+
+<!-- ================================================================ CASE -->
+<section class="block" id="case">
+  <h2>Worked example: a server that leaks zombies</h2>
+  <p><strong>Scenario.</strong> A small server forks a worker process for each job. Workers finish quickly, but after a day <code>ps</code> shows hundreds of <code>&lt;defunct&gt;</code> entries, and eventually the server can't create new processes. What's going on, and how do we fix it?</p>
+  <p><strong>Step 1 — Read the states.</strong> <code>Z</code>/<code>&lt;defunct&gt;</code> is the final state from concept 6: the worker exited, but its PCB still exists. The PCB holds the exit status until the parent asks for it.</p>
+  <p><strong>Step 2 — Find who's responsible.</strong> Only the parent can collect a zombie (concept 7), so the bug is in the server: it never calls <code>wait()</code>. Each zombie still occupies a process-table slot and a PID, which is why creation eventually fails.</p>
+  <p><strong>Step 3 — Reproduce and fix.</strong> This program starts three workers, shows them as zombies, then reaps every finished child with a non-blocking <code>waitpid</code> loop:</p>
+  <div class="code" id="code-reaper">
+    <div class="code-head"><span class="fname">reaper.c</span><span class="badge">our example</span></div>
+    <div class="code-body"><pre><code class="language-c">
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;sys/wait.h&gt;
+
+static void show_children(void) {
+    char cmd[80];
+    snprintf(cmd, sizeof cmd, "ps -o pid,ppid,stat,cmd --ppid %d", (int) getpid());
+    fflush(stdout);
+    system(cmd);
+}
+
+int main(void) {
+    for (int i = 0; i &lt; 3; i++) {           // a "server" starts 3 workers
+        pid_t pid = fork();
+        if (pid == 0) exit(i);              // each worker finishes at once
+    }
+    sleep(1);
+    printf("before reaping:\n");
+    show_children();                        // 3 zombies (plus ps itself)
+
+    int status; pid_t done;
+    while ((done = waitpid(-1, &amp;status, WNOHANG)) &gt; 0)    // reap every finished child
+        printf("reaped %d (exit %d)\n", (int) done, WEXITSTATUS(status));
+
+    printf("after reaping:\n");
+    show_children();
+    return 0;
+}</code></pre></div>
+  </div>
+  <ol class="annot" data-for="code-reaper">
+    <li data-lines="14-17"><span class="ln">L14–17</span><span>Three children, each exiting immediately with codes 0, 1, 2.</span></li>
+    <li data-lines="23-24"><span class="ln">L23–24</span><span><code>waitpid(-1, …, WNOHANG)</code>: collect <em>any</em> finished child, but don't block if none is ready. Loop until there are none left.</span></li>
+  </ol>
+  <div class="code term">
+    <div class="code-head"><span class="fname">terminal — real run</span></div>
+    <div class="code-body"><pre><code><span class="prompt">$ </span>gcc -Wall -o reaper reaper.c &amp;&amp; ./reaper
+before reaping:
+  PID  PPID STAT CMD
+  358   357 Z    [reaper] &lt;defunct&gt;
+  359   357 Z    [reaper] &lt;defunct&gt;
+  360   357 Z    [reaper] &lt;defunct&gt;
+  361   357 S    sh -c -- ps -o pid,ppid,stat,cmd --ppid 357
+reaped 358 (exit 0)
+reaped 359 (exit 1)
+reaped 360 (exit 2)
+after reaping:
+  PID  PPID STAT CMD
+  363   357 S    sh -c -- ps -o pid,ppid,stat,cmd --ppid 357</code></pre></div>
+  </div>
+  <p><strong>Step 4 — Apply it to the server.</strong> A real server would run that same <code>waitpid(-1, …, WNOHANG)</code> loop regularly — for example each time around its main loop, or when the OS notifies it that a child exited (the <code>SIGCHLD</code> signal). The zombies disappear, PIDs are freed, and new workers can be created again.</p>
+  <div class="box">
+    <p class="box-label">What this used</p>
+    <ul>
+      <li><strong>Process states</strong> to recognize <code>Z</code> as "exited, not yet cleaned up".</li>
+      <li><strong>The PCB</strong> to understand what a zombie still holds (exit status, a slot, a PID).</li>
+      <li><strong>The process API</strong> — wait — as the cure.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================================================================ TAKEAWAYS -->
+<section class="block" id="takeaways">
+  <h2>Key takeaways</h2>
+  <ul class="takeaways">
+    <li>A <strong>process</strong> is a running program. A program is bytes on disk; one program can become many processes.</li>
+    <li>The OS virtualizes the CPU by <strong>time sharing</strong>; resources like disks are <strong>space shared</strong>. Time sharing costs some performance.</li>
+    <li><strong>Mechanisms</strong> answer <em>how</em> (context switch); <strong>policies</strong> answer <em>which</em> (scheduler). Keep them separate.</li>
+    <li>A process's <strong>machine state</strong> = address space (code, static data, heap, stack) + registers (PC, SP, …) + I/O state (open files).</li>
+    <li>The <strong>process API</strong>: create, destroy, wait, control (suspend/resume), status.</li>
+    <li><strong>Creation</strong>: load code and data (lazily on modern OSes), set up stack with argc/argv, heap, fds 0–2, then jump to <code>main</code>.</li>
+    <li><strong>States</strong>: running, ready, blocked (+ initial and zombie). I/O completion makes a process ready, not running.</li>
+    <li>The OS tracks each process in a <strong>PCB</strong> on the process list, including its saved register context.</li>
+  </ul>
+</section>
+
+<!-- ================================================================ PRACTICE -->
+<section class="block" id="practice">
+  <h2>Practice</h2>
+  <p>Easy → hard. The simulator in the <a href="#lab-ps">lab</a> can check exercises 2, 3 and 5.</p>
+
+  <div class="exercise">
+    <h4>Exercise 1 · Name the state <span class="diff easy">easy</span></h4>
+    <p>For each, give the state (running / ready / blocked / zombie): (a) a web server waiting for a request to arrive on the network; (b) a compiler that would run but another process has the CPU; (c) a child that called <code>exit(0)</code> whose parent hasn't called <code>wait()</code>; (d) a game executing its physics loop on the CPU.</p>
+    <details><summary>Hint</summary><div class="details-body"><p>Ask: is it on the CPU? If not, could it run if given the CPU?</p></div></details>
+    <details><summary>Solution</summary><div class="details-body"><p>(a) blocked — waiting for an event (network I/O); (b) ready; (c) zombie; (d) running.</p></div></details>
+  </div>
+
+  <div class="exercise">
+    <h4>Exercise 2 · CPU utilization <span class="diff easy">easy</span></h4>
+    <p>Two processes each run 4 CPU instructions and do no I/O (the Figure 4.3 preset). What fraction of the time is the CPU busy? Why can you know without simulating?</p>
+    <details><summary>Hint</summary><div class="details-body"><p>Is there ever a tick when nobody can use the CPU?</p></div></details>
+    <details><summary>Solution</summary><div class="details-body"><p>100%. With no I/O, some process is always ready, so the CPU never idles: 8 ticks of work in 8 ticks.</p></div></details>
+  </div>
+
+  <div class="exercise">
+    <h4>Exercise 3 · Does order matter? <span class="diff medium">medium</span></h4>
+    <p>P0 = <code>cccc</code> (CPU only), P1 = <code>i</code> (one I/O), I/O length 5, "switch to another process". How many ticks does it take? Now swap them: P0 = <code>i</code>, P1 = <code>cccc</code>. Predict, then check with the lab.</p>
+    <details><summary>Hint</summary><div class="details-body"><p>In which order can the I/O overlap with CPU work?</p></div></details>
+    <details><summary>Solution</summary><div class="details-body"><p>CPU first: P0 runs ticks 1–4, P1 issues its I/O at tick 5 and is blocked for ticks 6–10 with nothing else to run — <strong>10 ticks</strong>, CPU busy 50%. I/O first: P0 issues the I/O at tick 1; while it's blocked (ticks 2–6), P1 runs ticks 2–5 — <strong>6 ticks</strong>. Starting I/O-bound work early lets it overlap with CPU work. Choosing an order is exactly the kind of decision a scheduling policy makes.</p></div></details>
+  </div>
+
+  <div class="exercise">
+    <h4>Exercise 4 · Read the address space <span class="diff medium">medium</span></h4>
+    <p>Compile <code>layout.c</code> and run it three times. Which addresses change between runs? Does the <em>order</em> of the regions change? Then run it under <code>setarch $(uname -m) -R</code> and compare.</p>
+    <details><summary>Hint</summary><div class="details-body"><p>Recall ASLR from Ch. 01.</p></div></details>
+    <details><summary>Solution</summary><div class="details-body"><p>With ASLR, all addresses change between runs (the code/data base, the heap start and the stack location are each randomized), but the order — code &lt; static data &lt; heap, stack much higher — stays the same, because it comes from the address-space layout the OS sets up. With <code>setarch -R</code> the addresses repeat exactly. In our two runs above, for example, <code>main</code> was at <code>0x55667c2de1a9</code> and then <code>0x559cc359b1a9</code>: different base, same last digits, because the offset of <code>main</code> inside the program doesn't change.</p></div></details>
+  </div>
+
+  <div class="exercise">
+    <h4>Exercise 5 · Run it now, or later? <span class="diff hard">hard</span></h4>
+    <p>Load "One I/O-heavy + three CPU-heavy" in the lab: P0 = <code>iii</code> and three processes of <code>ccccc</code>, I/O length 5, "switch to another process". Compare "keep running the current one" with "run the I/O process now". Which finishes sooner and keeps the CPU busier? Explain why giving the CPU to a process that just finished I/O can be a good idea.</p>
+    <details><summary>Hint</summary><div class="details-body"><p>Watch what P0 does with the CPU when it gets it. How long does it hold the CPU each time?</p></div></details>
+    <details><summary>Solution</summary><div class="details-body"><p>Keep current: P0's I/O completes at tick 7, but it waits as ready while P2 and P3 run; it only issues its next I/O at tick 17, and its last I/O ends at tick 28 — <strong>28 ticks, CPU busy 18 of 28 (64%)</strong>; ticks 18–28 the CPU mostly idles. Run immediately: each time P0's I/O completes it runs for one tick, starts the next I/O, and gives the CPU back — <strong>18 ticks, CPU busy 100%</strong>. An I/O-bound process needs the CPU only briefly, so running it promptly keeps the device busy in parallel with the CPU work. Schedulers in Ch. 06 (MLFQ) build on exactly this observation.</p></div></details>
+  </div>
+</section>
+
+<!-- ================================================================ QUIZ -->
+<section class="block" id="quiz">
+  <h2>Self-check quiz</h2>
+  <div class="quiz">
+    <div class="q" data-answer="b"><fieldset>
+      <legend>What is the best short definition of a process?</legend>
+      <div class="opts">
+        <label><input type="radio" name="q1" value="a"> An executable file on disk</label>
+        <label><input type="radio" name="q1" value="b"> A running program, together with its machine state</label>
+        <label><input type="radio" name="q1" value="c"> A thread of the kernel</label>
+        <label><input type="radio" name="q1" value="d"> A CPU core</label>
+      </div></fieldset>
+      <div class="fb">The program is the lifeless file; the process is that program running — memory, registers, open files and all.</div>
+    </div>
+
+    <div class="q" data-answer="c"><fieldset>
+      <legend>Which of these is <em>not</em> part of a process's machine state?</legend>
+      <div class="opts">
+        <label><input type="radio" name="q2" value="a"> Its program counter</label>
+        <label><input type="radio" name="q2" value="b"> Its list of open files</label>
+        <label><input type="radio" name="q2" value="c"> The source code it was compiled from</label>
+        <label><input type="radio" name="q2" value="d"> Its stack</label>
+      </div></fieldset>
+      <div class="fb">Machine state is what the running program can read or change: memory (including stack), registers (including PC), and I/O state. The source code isn't part of it.</div>
+    </div>
+
+    <div class="q" data-answer="a"><fieldset>
+      <legend>"Which process should run next?" is answered by…</legend>
+      <div class="opts">
+        <label><input type="radio" name="q3" value="a"> a policy</label>
+        <label><input type="radio" name="q3" value="b"> a mechanism</label>
+        <label><input type="radio" name="q3" value="c"> the PCB</label>
+        <label><input type="radio" name="q3" value="d"> the loader</label>
+      </div></fieldset>
+      <div class="fb">"Which" questions are policies (the scheduler). The context switch that carries out the decision is the mechanism.</div>
+    </div>
+
+    <div class="q" data-answer="d"><fieldset>
+      <legend>A process's disk read just completed. Which state does it move to?</legend>
+      <div class="opts">
+        <label><input type="radio" name="q4" value="a"> Running</label>
+        <label><input type="radio" name="q4" value="b"> Blocked</label>
+        <label><input type="radio" name="q4" value="c"> Zombie</label>
+        <label><input type="radio" name="q4" value="d"> Ready</label>
+      </div></fieldset>
+      <div class="fb">I/O completion makes it ready. Whether it runs right away is the scheduler's decision.</div>
+    </div>
+
+    <div class="q" data-answer="b"><fieldset>
+      <legend>On a modern OS, how is a program's code typically brought into memory?</legend>
+      <div class="opts">
+        <label><input type="radio" name="q5" value="a"> Eagerly — all of it, before <code>main</code> starts</label>
+        <label><input type="radio" name="q5" value="b"> Lazily — pieces are loaded when first needed</label>
+        <label><input type="radio" name="q5" value="c"> It's never loaded; the CPU runs it from disk</label>
+        <label><input type="radio" name="q5" value="d"> The shell copies it in</label>
+      </div></fieldset>
+      <div class="fb">Early systems loaded eagerly; modern ones load lazily using paging (Ch. 14–17).</div>
+    </div>
+
+    <div class="q" data-answer="c"><fieldset>
+      <legend>What does a freshly started UNIX process have open, without opening anything itself?</legend>
+      <div class="opts">
+        <label><input type="radio" name="q6" value="a"> Nothing</label>
+        <label><input type="radio" name="q6" value="b"> Its own executable file only</label>
+        <label><input type="radio" name="q6" value="c"> File descriptors 0, 1, 2 — standard input, output, error</label>
+        <label><input type="radio" name="q6" value="d"> Every file in the current directory</label>
+      </div></fieldset>
+      <div class="fb">The OS sets up stdin, stdout and stderr as part of process creation.</div>
+    </div>
+
+    <div class="q" data-answer="a"><fieldset>
+      <legend><code>ps</code> shows <code>Z</code> / <code>&lt;defunct&gt;</code> for a process. What is true?</legend>
+      <div class="opts">
+        <label><input type="radio" name="q7" value="a"> It has exited; its parent hasn't collected its exit status yet</label>
+        <label><input type="radio" name="q7" value="b"> It's using 100% CPU</label>
+        <label><input type="radio" name="q7" value="c"> It's stopped and can be resumed with <code>kill -CONT</code></label>
+        <label><input type="radio" name="q7" value="d"> <code>kill -9</code> will remove it</label>
+      </div></fieldset>
+      <div class="fb">A zombie is the final state: exited, PCB kept for the parent. Only the parent's <code>wait()</code> clears it.</div>
+    </div>
+
+    <div class="q" data-answer="b"><fieldset>
+      <legend>Why does the PCB store a copy of the process's registers?</legend>
+      <div class="opts">
+        <label><input type="radio" name="q8" value="a"> To speed up arithmetic</label>
+        <label><input type="radio" name="q8" value="b"> So a stopped process can later resume exactly where it left off</label>
+        <label><input type="radio" name="q8" value="c"> So other processes can read them</label>
+        <label><input type="radio" name="q8" value="d"> Because the CPU has no registers of its own</label>
+      </div></fieldset>
+      <div class="fb">When a process is stopped, its registers are saved in its PCB; restoring them into the CPU resumes it. That's the context switch.</div>
+    </div>
+
+    <p class="score" aria-live="polite"></p>
+    <button class="btn" type="button" data-quiz-reset>↺ Reset quiz</button>
+  </div>
+</section>
+
+<!-- ================================================================ CHEATSHEET -->
+<section class="block" id="cheatsheet">
+  <h2>Cheat sheet</h2>
+  <div class="cheatsheet">
+    <h3>Ch. 02 · The Process <button class="btn no-print" type="button" data-print-cheatsheet>Print this sheet</button></h3>
+    <div class="cheat-grid">
+      <div><h4>Process</h4><ul>
+        <li>= running program + machine state</li>
+        <li>memory: code · static data · heap · stack</li>
+        <li>registers: PC (IP) · SP · FP · general</li>
+        <li>I/O: open files (fd 0, 1, 2 …)</li></ul></div>
+      <div><h4>Sharing</h4><ul>
+        <li>time sharing: take turns (CPU)</li>
+        <li>space sharing: split up (disk, memory)</li>
+        <li>mechanism = how · policy = which</li></ul></div>
+      <div><h4>API</h4><ul>
+        <li>create · destroy · wait · control · status</li>
+        <li>UNIX: <code>fork/exec</code> · <code>kill</code> · <code>wait</code></li>
+        <li><code>kill -STOP</code> / <code>-CONT</code> · Ctrl-Z / <code>fg</code></li></ul></div>
+      <div><h4>Creation</h4><ul>
+        <li>load code + static data (lazily)</li>
+        <li>stack with argc/argv · heap</li>
+        <li>fds 0/1/2 · jump to <code>main</code></li></ul></div>
+      <div><h4>States</h4><ul>
+        <li>ready → running: scheduled</li>
+        <li>running → ready: descheduled</li>
+        <li>running → blocked: start I/O</li>
+        <li>blocked → ready: I/O done</li>
+        <li>+ initial · zombie (exit, until wait)</li></ul></div>
+      <div><h4>Linux</h4><ul>
+        <li><code>ps -o pid,stat,cmd</code></li>
+        <li>R runnable · S/D sleeping · T stopped · Z zombie</li>
+        <li><code>/proc/PID/status</code>, <code>/proc/PID/fd</code></li>
+        <li>reap: <code>waitpid(-1, &amp;s, WNOHANG)</code></li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ GLOSSARY -->
+<section class="block" id="glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <div class="g-item"><dt id="g-address-space">address space</dt><dd>The memory a process can address: its code, static data, heap and stack.</dd></div>
+    <div class="g-item"><dt id="g-context-switch">context switch</dt><dd>Stopping one process and starting another on a CPU, by saving the first's registers and restoring the second's.</dd></div>
+    <div class="g-item"><dt id="g-heap">heap</dt><dd>Region for memory requested explicitly at run time with <code>malloc()</code> and released with <code>free()</code>.</dd></div>
+    <div class="g-item"><dt id="g-machine-state">machine state</dt><dd>Everything a running program can read or update: memory, registers, and I/O state such as open files.</dd></div>
+    <div class="g-item"><dt id="g-mechanism">mechanism</dt><dd>A low-level method or protocol implementing a piece of functionality — the "how".</dd></div>
+    <div class="g-item"><dt id="g-pcb">PCB</dt><dd>Process control block: the kernel's per-process record (state, PID, memory info, saved registers, open files, parent…).</dd></div>
+    <div class="g-item"><dt id="g-policy">policy</dt><dd>An algorithm that makes a decision in the OS, such as which process runs next — the "which".</dd></div>
+    <div class="g-item"><dt id="g-process">process</dt><dd>A running program: the OS's abstraction combining its address space, registers and I/O state.</dd></div>
+    <div class="g-item"><dt id="g-process-list">process list</dt><dd>The OS data structure holding the PCBs of all processes (ready, running, blocked).</dd></div>
+    <div class="g-item"><dt id="g-process-state">process state</dt><dd>Running, ready or blocked (plus initial and final/zombie on real systems).</dd></div>
+    <div class="g-item"><dt id="g-program-counter">program counter</dt><dd>Register holding the address of the next instruction to execute; also called the instruction pointer.</dd></div>
+    <div class="g-item"><dt id="g-space-sharing">space sharing</dt><dd>Sharing a resource by dividing it into parts, each used by one entity (e.g. disk blocks).</dd></div>
+    <div class="g-item"><dt id="g-stack">stack</dt><dd>Region holding local variables, function parameters and return addresses; managed with the stack and frame pointers.</dd></div>
+    <div class="g-item"><dt id="g-time-sharing">time sharing</dt><dd>Sharing a resource by letting each entity use it for a short time in turn (e.g. the CPU).</dd></div>
+    <div class="g-item"><dt id="g-zombie">zombie</dt><dd>Final state of a UNIX process that has exited but whose parent hasn't yet called <code>wait()</code> to collect its status.</dd></div>
+  </dl>
+</section>
+
+<!-- ================================================================ CONNECTIONS -->
+<section class="block" id="connections">
+  <h2>Connections</h2>
+  <div class="conn-grid">
+    <div class="box"><h4>Builds on</h4><ul>
+      <li><a href="chapter-01.html">Ch. 01 — Introduction</a>: CPU virtualization, mechanism vs policy, system calls, <code>fd</code>s in <code>io.c</code></li></ul></div>
+    <div class="box"><h4>Used later in</h4><ul>
+      <li><span class="soon">Ch. 03 — Process API</span> (<code>fork</code>, <code>exec</code>, <code>wait</code>)</li>
+      <li><span class="soon">Ch. 04 — Limited Direct Execution</span> (context switch)</li>
+      <li><span class="soon">Ch. 05–08 — Scheduling</span> (policies, I/O overlap)</li>
+      <li><span class="soon">Ch. 09 — Address Spaces</span> (code/heap/stack)</li>
+      <li><span class="soon">Ch. 17 — Swapping</span> (lazy loading)</li></ul></div>
+    <div class="box"><h4>Further reading (from the chapter)</h4><ul>
+      <li>Cox, Kaashoek, Morris, Zeldovich, "The xv6 Operating System"</li>
+      <li>Dennis &amp; Van Horn, "Programming Semantics for Multiprogrammed Computations", CACM 1966</li>
+      <li>Levin et al., "Policy/mechanism separation in Hydra", SOSP 1975</li></ul></div>
+  </div>
+
+  <nav class="pager" aria-label="Chapter navigation">
+    <a href="chapter-01.html" class="prev"><small>← previous</small>Ch. 01 — Introduction to Operating Systems</a>
+    <span class="disabled next" aria-disabled="true"><small>next · coming soon</small>Ch. 03 — Process API →</span>
+  </nav>
+  <div class="pager-links"><a href="index.html">OSTEP index</a><a href="../index.html">Library home</a><a href="#main">Back to top ↑</a></div>
+</section>
+
+</main>
+</div>
+
+<footer class="site">Study guide for <em>Operating Systems: Three Easy Pieces</em> (Arpaci-Dusseau). Explanations written for this guide; read the original for the full text.</footer>
+
+<script>/*@include shared/base.js*/</script>
+<script>
+/* ===================== Chapter 02 interactives ===================== */
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------- Loader stepper ---------- */
+  (function () {
+    var msgs = [
+      "The program sits on disk: code and static data, nothing running yet.",
+      "Step 1 · Load code and static data into the new address space (lazily on modern OSes).",
+      "Step 2 · Allocate the stack and place main's arguments on it: argc = 2, argv = {\"prog\", \"x\"}.",
+      "Step 3 · Allocate a small heap; it will grow as the program calls malloc().",
+      "Step 4 · Set up I/O: file descriptors 0, 1, 2 (standard input, output, error).",
+      "Step 5 · Jump to main(): set the PC to the entry point and give the CPU to the process. It's now running."
+    ];
+    var step = 0, steps = document.querySelectorAll(".ld-step");
+    function render() {
+      steps.forEach(function (g) {
+        var s = +g.getAttribute("data-step");
+        g.classList.toggle("off", s > step);
+        g.classList.toggle("now", s === step);
+      });
+      $("ld-status").textContent = msgs[step];
+    }
+    function next() { if (step >= 5) return false; step++; render(); return step < 5; }
+    var player = LV.player({ step: next, interval: function () { return 1400; }, onState: function (p) { $("ld-play").textContent = p ? "❚❚ Pause" : "▶ Play"; } });
+    $("ld-play").addEventListener("click", function () { if (step >= 5) { step = 0; render(); } player.toggle(); });
+    $("ld-step").addEventListener("click", function () { player.pause(); next(); });
+    $("ld-reset").addEventListener("click", function () { player.pause(); step = 0; render(); });
+    render();
+  })();
+
+  /* ---------- State machine with events ---------- */
+  (function () {
+    var T = {
+      create: { from: "init", to: "ready", edge: "e-create", ok: "Created: the PCB is set up and the process joins the ready list." },
+      sched: { from: "ready", to: "running", edge: "e-sched", ok: "Scheduled: the OS restores its registers and it runs on the CPU." },
+      desched: { from: "running", to: "ready", edge: "e-desched", ok: "Descheduled: the timer fired and the OS chose to run someone else. It's ready, not blocked." },
+      io: { from: "running", to: "blocked", edge: "e-io", ok: "Blocked: it's waiting for the disk, so the OS can give the CPU to another process." },
+      iodone: { from: "blocked", to: "ready", edge: "e-iodone", ok: "I/O done: it becomes ready — not running. The scheduler decides when it runs." },
+      exit: { from: "running", to: "zombie", edge: "e-exit", ok: "Exited: it's a zombie now. Its PCB stays so the parent can read the exit code." },
+      reap: { from: "zombie", to: "gone", edge: "e-reap", ok: "Reaped: the parent collected the exit status and the OS freed the PCB. Press 'OS creates it' to start again." }
+    };
+    var why = {
+      init: "It doesn't exist yet — the OS must create it first.",
+      ready: "It's ready, not running: only a running process can do that.",
+      running: "It's running — that event doesn't apply right now.",
+      blocked: "It's blocked waiting for I/O; it can only become ready when the I/O completes.",
+      zombie: "It has already exited; only the parent's wait() can affect it now.",
+      gone: "It's gone. Create a new process first."
+    };
+    var state = "init";
+    function render(edge) {
+      ["init", "ready", "running", "blocked", "zombie"].forEach(function (s) { $("sm-" + s).classList.toggle("on", s === state); });
+      document.querySelectorAll(".sm-edge").forEach(function (e) { e.classList.remove("flash"); });
+      if (edge) $(edge).classList.add("flash");
+    }
+    document.querySelectorAll("[data-ev]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var ev = b.getAttribute("data-ev"), t = T[ev];
+        if ((state === t.from) || (ev === "create" && state === "gone")) {
+          state = t.to; render(t.edge); $("sm-status").textContent = t.ok;
+        } else {
+          $("sm-status").textContent = "Not possible: " + why[state].charAt(0).toLowerCase() + why[state].slice(1);
+        }
+      });
+    });
+    render();
+  })();
+
+  /* ---------- Context switch widget ---------- */
+  (function () {
+    var st;
+    function reset() {
+      st = { running: 1, cpu: { PC: "0x1040", SP: "0x7ffd10", eax: 3 },
+             pcb: { 1: { PC: "0x1000", SP: "0x7ffd40", eax: 0 }, 2: { PC: "0x2084", SP: "0x7ffa80", eax: 9 } } };
+      render([], "P1 is running. Its saved context in the PCB is stale — the live values are in the CPU.");
+    }
+    function dl(regs, flash) { return Object.keys(regs).map(function (k) { return "<dt>" + k + "</dt><dd" + (flash.indexOf(k) >= 0 ? ' class="flash"' : "") + ">" + regs[k] + "</dd>"; }).join(""); }
+    function render(flash, msg) {
+      [1, 2].forEach(function (p) {
+        var card = $("cs-p" + p), run = st.running === p;
+        card.classList.toggle("running", run);
+        card.querySelector(".st").textContent = run ? "RUNNING" : "READY";
+        card.querySelector("dl").innerHTML = dl(st.pcb[p], flash.indexOf("p" + p) >= 0 ? ["PC", "SP", "eax"] : []);
+      });
+      $("cs-cpu").querySelector("dl").innerHTML = dl(st.cpu, flash.indexOf("cpu") >= 0 ? ["PC", "SP", "eax"] : []);
+      $("cs-cpu").querySelector("h5").textContent = "CPU registers · running P" + st.running;
+      $("cs-status").textContent = msg;
+    }
+    function hex(s, add) { return "0x" + (parseInt(s, 16) + add).toString(16); }
+    $("cs-run").addEventListener("click", function () {
+      st.cpu.PC = hex(st.cpu.PC, 12); st.cpu.eax += 3;
+      render(["cpu"], "P" + st.running + " executed 3 instructions: PC advanced and eax changed — only in the CPU.");
+    });
+    $("cs-switch").addEventListener("click", function () {
+      var a = st.running, b = a === 1 ? 2 : 1;
+      st.pcb[a] = { PC: st.cpu.PC, SP: st.cpu.SP, eax: st.cpu.eax };
+      st.cpu = { PC: st.pcb[b].PC, SP: st.pcb[b].SP, eax: st.pcb[b].eax };
+      st.running = b;
+      render(["p" + a, "cpu"], "Saved P" + a + "'s registers into its PCB, then loaded P" + b + "'s saved registers into the CPU. P" + b + " resumes exactly where it stopped.");
+    });
+    $("cs-reset2").addEventListener("click", reset);
+    reset();
+  })();
+
+  /* ---------- Process-state simulator ---------- */
+  function simulate(progs, opt) {
+    var L = opt.ioLen, onEnd = opt.switchOn === "end", immediate = opt.ioDone === "immediate";
+    var P = progs.map(function (s, k) { return { id: k, code: s.split(""), pc: 0, state: s.length ? "READY" : "DONE", ioLeft: 0 }; });
+    var cur = -1, rows = [], t = 0, cpuBusy = 0, ioBusy = 0;
+    function allDone() { return P.every(function (p) { return p.state === "DONE"; }); }
+    function nextReady(from) { for (var k = 1; k <= P.length; k++) { var j = (from + k + P.length) % P.length; if (P[j].state === "READY") return j; } return -1; }
+    while (!allDone() && t < 400) {
+      t++;
+      var notes = [], justReady = [];
+      P.forEach(function (p) { if (p.state === "BLOCKED" && p.ioLeft === 0) { p.state = "READY"; justReady.push(p.id); notes.push("P" + p.id + " I/O done"); } });
+      if (immediate && justReady.length && !onEnd) {
+        if (cur >= 0 && P[cur].state === "RUNNING") P[cur].state = "READY";
+        cur = justReady[0]; P[cur].state = "RUNNING";
+      }
+      if (cur < 0 || P[cur].state !== "RUNNING") {
+        if (onEnd && cur >= 0 && P[cur].state === "BLOCKED") { /* CPU waits for it */ }
+        else if (onEnd && cur >= 0 && P[cur].state === "READY" && P[cur].pc < P[cur].code.length) { P[cur].state = "RUNNING"; }
+        else { var n = nextReady(cur < 0 ? -1 : cur); if (n >= 0) { cur = n; P[cur].state = "RUNNING"; } }
+      }
+      var snap = P.map(function (p) { return p.state; });
+      var ioActive = P.some(function (p) { return p.state === "BLOCKED"; });
+      var cpuUsed = false;
+      if (cur >= 0 && P[cur].state === "RUNNING") {
+        var p = P[cur], ins = p.code[p.pc++];
+        cpuBusy++; cpuUsed = true;
+        snap[cur] = ins === "i" ? "RUN:io" : "RUN:cpu";
+        if (ins === "i") { p.state = "BLOCKED"; p.ioLeft = L; notes.push("P" + cur + " starts I/O"); }
+        else if (p.pc >= p.code.length) { p.state = "DONE"; notes.push("P" + cur + " done"); }
+      }
+      if (ioActive) ioBusy++;
+      P.forEach(function (q) { if (q.state === "BLOCKED" && snap[q.id] !== "RUN:io") q.ioLeft--; });
+      P.forEach(function (q) { if (q.state === "BLOCKED" && q.ioLeft === 0 && q.pc >= q.code.length) { q.state = "DONE"; notes.push("P" + q.id + " I/O done → done"); } });
+      rows.push({ t: t, states: snap, cpu: cpuUsed, io: ioActive, notes: notes });
+    }
+    return { rows: rows, total: t, cpuBusy: cpuBusy, ioBusy: ioBusy };
+  }
+
+  (function () {
+    var presets = {
+      f43: { p: ["cccc", "cccc", "", ""], io: 3, sw: "io", done: "later" },
+      f44: { p: ["ccicc", "ccccc", "", ""], io: 3, sw: "io", done: "later" },
+      q3: { p: ["i", "cccc", "", ""], io: 5, sw: "io", done: "later" },
+      q2: { p: ["cccc", "i", "", ""], io: 5, sw: "io", done: "later" },
+      q6: { p: ["iii", "ccccc", "ccccc", "ccccc"], io: 5, sw: "io", done: "later" }
+    };
+    var result = null, shown = 0;
+    var label = { "RUN:cpu": ["run", "RUN:cpu"], "RUN:io": ["rio", "RUN:io"], READY: ["rdy", "Ready"], BLOCKED: ["blk", "Blocked"], DONE: ["done", "—"] };
+    function progs() { return [0, 1, 2, 3].map(function (k) { return $("ps-p" + k).value.toLowerCase().replace(/[^ci]/g, ""); }); }
+    function compute() {
+      var ps = progs(), n = 4;
+      while (n > 1 && !ps[n - 1]) n--;
+      result = simulate(ps.slice(0, n), { ioLen: +$("ps-io").value, switchOn: $("ps-sw").value, ioDone: $("ps-done").value });
+      result.n = n;
+      shown = 0;
+    }
+    function render() {
+      var n = result.n, h = "<thead><tr><th>Time</th>";
+      for (var k = 0; k < n; k++) h += "<th>P" + k + "</th>";
+      h += "<th>CPU</th><th>I/O</th><th>Notes</th></tr></thead><tbody>";
+      for (var i = 0; i < shown; i++) {
+        var r = result.rows[i];
+        h += '<tr class="' + (i === shown - 1 ? "cur" : "") + '"><td>' + r.t + "</td>";
+        r.states.forEach(function (s) { var l = label[s]; h += '<td class="' + l[0] + '">' + l[1] + "</td>"; });
+        h += '<td class="busy">' + (r.cpu ? "1" : "") + '</td><td class="busy">' + (r.io ? "1" : "") + "</td><td>" + r.notes.join("; ") + "</td></tr>";
+      }
+      $("ps-table").innerHTML = h + "</tbody>";
+      var done = shown === result.rows.length;
+      $("ps-t").textContent = shown + (done ? "" : " / ?");
+      $("ps-cpu").textContent = done ? result.cpuBusy + " (" + Math.round(100 * result.cpuBusy / result.total) + "%)" : "—";
+      $("ps-iob").textContent = done ? result.ioBusy + " (" + Math.round(100 * result.ioBusy / result.total) + "%)" : "—";
+      var wrap = $("ps-table").parentNode; wrap.scrollTop = wrap.scrollHeight;
+    }
+    function step() { if (shown >= result.rows.length) return false; shown++; render(); return shown < result.rows.length; }
+    var player = LV.player({ step: step, interval: function () { return 550; }, onState: function (p) { $("ps-play").textContent = p ? "❚❚ Pause" : "▶ Play"; } });
+    function reset() { player.pause(); compute(); render(); }
+    function load(name) {
+      var pr = presets[name]; if (!pr) return;
+      pr.p.forEach(function (s, k) { $("ps-p" + k).value = s; });
+      $("ps-io").value = pr.io; $("ps-io-o").textContent = pr.io;
+      $("ps-sw").value = pr.sw; $("ps-done").value = pr.done;
+      reset();
+    }
+    $("ps-preset").addEventListener("change", function () { load(this.value); });
+    ["ps-p0", "ps-p1", "ps-p2", "ps-p3"].forEach(function (id) { $(id).addEventListener("input", function () { $("ps-preset").value = "custom"; reset(); }); });
+    $("ps-io").addEventListener("input", function () { $("ps-io-o").textContent = this.value; reset(); });
+    ["ps-sw", "ps-done"].forEach(function (id) { $(id).addEventListener("change", reset); });
+    $("ps-play").addEventListener("click", function () { if (shown >= result.rows.length) { shown = 0; render(); } player.toggle(); });
+    $("ps-step").addEventListener("click", function () { player.pause(); step(); });
+    $("ps-all").addEventListener("click", function () { player.pause(); shown = result.rows.length; render(); });
+    $("ps-reset").addEventListener("click", reset);
+    load("f44");
+    window.__simulate = simulate; // exposed for testing
+  })();
+})();
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-clike.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-c.min.js"></script>
+</body>
+</html>
