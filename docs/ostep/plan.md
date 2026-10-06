@@ -149,7 +149,20 @@ Ch01 Intro
 | Process list / PCB | xv6 `struct proc` annotated | Context-switch save/restore widget; `zombie.c` |
 | Lab | Process-state simulator (process-run.py-like) | Presets incl. book Figs 4.3/4.4, policies for I/O |
 
+### Chapter 03 — Interlude: Process API
+| Concept | Visual | Interaction |
+|---|---|---|
+| fork() | hero flow diagram; copy.c output | fork-tree visualizer (n forks → 2^n) |
+| Who runs first | two-timeline comparison | — |
+| wait() | — (p2.c, waitchild.c; status decoding) | — |
+| exec() | exec-variant comparison table | — |
+| Shell / redirection / pipes | — (p4.c, pipe.c) | Lab: shell stepper with per-process fd tables (plain, >, pipe) |
+| Signals | signal table | — (sig.c) |
+| Worked example | minish.c (30-line shell), extracted from the page and tested | — |
+
 ## Uncertainties / notes
+- Ch03: Order after fork is not guaranteed; on our Linux test box the parent printed first in 40/40 runs — stated as an observation only.
+- Ch03: Book's p1.c duplicates "hello world" when stdout is a pipe/file (stdio buffer copied by fork); verified and used as a gotcha.
 - Ch02: The PDF pages for book chapter 4 say version 0.91 (chapters 1–2 say 0.90).
 - Ch02: The lab simulator is our own, inspired by `process-run.py`; its timing rules are stated on the page and reproduce the book's Figures 4.3 and 4.4 exactly, but may differ in detail from the real script.
 - Ch01: The book's `io.c` writes 13 bytes for `"hello world\n"` (12 visible chars), so the file gets a trailing NUL byte — verified with `od -c`. The page points this out and uses `strlen`.

@@ -1,0 +1,1183 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch. 03 · Interlude: Process API — OSTEP Study Guide</title>
+<meta name="description" content="Study page for Operating Systems: Three Easy Pieces, chapter 5: the UNIX process API — fork(), wait(), exec(), why they are separate, how shells do redirection and pipes, and signals.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>/*@include shared/base.css*/
+/*@include ostep/theme.css*/
+/* ---- chapter-specific ---- */
+.tree-wrap { overflow-x: auto; }
+.tree-wrap svg { display: block; min-width: 460px; }
+.sh-procs { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .6rem; }
+.sh-proc { border: 1px solid var(--line); border-radius: var(--r); padding: .6rem .7rem; font-family: var(--font-mono); font-size: .76rem; min-width: 0; }
+.sh-proc h5 { margin: 0 0 .1rem; font-family: var(--font-body); font-size: .85rem; color: var(--text-strong); }
+.sh-proc .sub { color: var(--muted); font-size: .72rem; margin-bottom: .4rem; }
+.sh-proc.changed { border-color: var(--accent); }
+.sh-proc.gone { opacity: .45; }
+.sh-proc table { min-width: 0; font-size: .74rem; }
+.sh-proc td { padding: .12rem .3rem; border-bottom: 1px solid var(--line); }
+.sh-proc td:first-child { color: var(--muted); width: 3.2em; white-space: nowrap; }
+.sh-proc td.new { color: var(--accent); }
+.sh-pipe { font-family: var(--font-mono); font-size: .76rem; color: var(--c-violet); margin: .5rem 0 0; }
+.sh-log { font-family: var(--font-mono); font-size: .76rem; margin: .6rem 0 0; padding-left: 1.6rem; max-height: 14em; overflow: auto; color: var(--muted); }
+.sh-log li.cur { color: var(--text-strong); }
+.sh-term { margin-top: .6rem; }
+.ex-table td:first-child { font-family: var(--font-mono); white-space: nowrap; }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <button class="icon-btn toc-toggle" type="button" aria-controls="toc" aria-expanded="false" aria-label="Open table of contents">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+  </button>
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a href="../index.html">library</a><span class="sep">/</span>
+    <a href="index.html" class="optional">ostep</a><span class="sep optional">/</span>
+    <span class="here">03 · Interlude: Process API</span>
+  </nav>
+  <button class="icon-btn" type="button" data-theme-toggle aria-label="Toggle theme"></button>
+  <div class="progress" aria-hidden="true"></div>
+</header>
+
+<div class="toc-scrim"></div>
+<div class="layout">
+  <nav class="toc" id="toc" aria-label="On this page">
+    <h2>On this page</h2>
+    <ol>
+      <li><a href="#why">Why this matters</a></li>
+      <li><a href="#map">Big-picture map</a></li>
+      <li><a href="#concepts">Core concepts</a>
+        <ol>
+          <li><a href="#c-fork">1 · fork(): copy yourself</a></li>
+          <li><a href="#c-order">2 · Who runs first?</a></li>
+          <li><a href="#c-wait">3 · wait(): wait for a child</a></li>
+          <li><a href="#c-exec">4 · exec(): become another program</a></li>
+          <li><a href="#c-shell">5 · Why separate? Shells, redirection, pipes</a></li>
+          <li><a href="#c-signals">6 · Signals and other tools</a></li>
+        </ol>
+      </li>
+      <li><a href="#labs">Interactive lab</a></li>
+      <li><a href="#case">Worked example</a></li>
+      <li><a href="#takeaways">Key takeaways</a></li>
+      <li><a href="#practice">Practice</a></li>
+      <li><a href="#quiz">Self-check quiz</a></li>
+      <li><a href="#cheatsheet">Cheat sheet</a></li>
+      <li><a href="#glossary">Glossary</a></li>
+      <li><a href="#connections">Connections</a></li>
+    </ol>
+  </nav>
+
+<main id="main">
+
+<!-- ================================================================ HERO -->
+<header class="hero">
+  <div class="kicker">Chapter 03 · OSTEP ch. 5</div>
+  <h1>Interlude: Process API</h1>
+  <p class="hook">UNIX creates processes with two odd system calls: <code>fork()</code> copies the caller, <code>exec()</code> replaces it with another program, and <code>wait()</code> waits for it to finish. Splitting them is what makes shells, redirection and pipes easy.</p>
+  <div class="meta">
+    <span class="chip level">Beginner</span>
+    <span class="chip">~30 min</span>
+    <span class="chip">C · Linux · gcc 13</span>
+  </div>
+  <p class="prereqs"><strong>Prerequisites:</strong> <a href="chapter-02.html">Ch. 02 — The Process</a> (machine state, process API, states, zombies) and the file descriptors from <a href="chapter-01.html#c-persist">Ch. 01</a>.</p>
+  <figure class="hero-art">
+    <svg viewBox="0 0 640 190" role="img" aria-labelledby="hero-t hero-d">
+      <title id="hero-t">fork, exec and wait</title>
+      <desc id="hero-d">A shell process calls fork, producing a copy of itself, the child. The child calls exec and becomes the program wc. The parent calls wait and is blocked until wc exits, then continues.</desc>
+      <defs><marker id="ha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="f-muted"/></marker></defs>
+      <rect x="0" y="20" width="120" height="44" rx="8" class="s-user"/><text x="60" y="47" text-anchor="middle" class="s-text">shell</text>
+      <path d="M120 42h70" class="s-arrow" marker-end="url(#ha)"/><text x="155" y="34" text-anchor="middle" class="s-text-soft">fork()</text>
+      <rect x="192" y="20" width="140" height="44" rx="8" class="s-user"/><text x="262" y="47" text-anchor="middle" class="s-text">shell (parent)</text>
+      <path d="M332 42h88" class="s-arrow" marker-end="url(#ha)"/><text x="376" y="34" text-anchor="middle" class="s-text-soft">wait()</text>
+      <rect x="422" y="20" width="110" height="44" rx="8" class="s-hw"/><text x="477" y="47" text-anchor="middle" class="s-text">blocked</text>
+      <path d="M532 42h40" class="s-arrow" marker-end="url(#ha)"/>
+      <rect x="574" y="20" width="66" height="44" rx="8" class="s-user"/><text x="607" y="47" text-anchor="middle" class="s-text">$ _</text>
+      <path d="M262 64 v40" class="s-arrow" marker-end="url(#ha)"/>
+      <rect x="192" y="106" width="140" height="44" rx="8" class="s-user"/><text x="262" y="133" text-anchor="middle" class="s-text">shell (child copy)</text>
+      <path d="M332 128h88" class="s-arrow" marker-end="url(#ha)"/><text x="376" y="120" text-anchor="middle" class="s-text-soft">exec("wc")</text>
+      <rect x="422" y="106" width="110" height="44" rx="8" class="s-violet"/><text x="477" y="133" text-anchor="middle" class="s-text">wc p3.c</text>
+      <path d="M532 128 C 560 128, 570 100, 590 66" class="s-arrow" marker-end="url(#ha)"/><text x="586" y="112" class="s-text-soft">exit</text>
+      <text x="320" y="182" text-anchor="middle" class="s-text-soft">what your shell does every time you press Enter</text>
+    </svg>
+  </figure>
+</header>
+
+<div class="box note">
+  <p class="box-label">About this page</p>
+  <p>Based on <em>Operating Systems: Three Easy Pieces</em> by Remzi &amp; Andrea Arpaci-Dusseau, chapter 5. Explanations are written fresh for this guide. The book's <code>p1.c</code>–<code>p4.c</code> are <strong>lightly modernized</strong> (unused <code>argc/argv</code> removed, error checks after <code>exec</code> added, array initializers instead of <code>strdup</code>); the other programs are ours. Everything was compiled and run on Linux x86-64 with gcc 13.3; outputs come from those runs.</p>
+</div>
+
+<!-- ================================================================ WHY -->
+<section class="block" id="why">
+  <h2>Why this matters</h2>
+  <p>This is the most practical chapter so far: these calls are what every shell, build tool, process supervisor and web server worker pool is made of.</p>
+  <div class="why-grid">
+    <div class="box"><h4>How does <code>&gt; file</code> work?</h4><p>The shell rewires the child's file descriptors between <code>fork</code> and <code>exec</code>. You'll see it line by line.</p></div>
+    <div class="box"><h4>How does <code>a | b</code> work?</h4><p>Two children, one kernel pipe, two <code>dup2</code> calls. You'll build one in 25 lines of C.</p></div>
+    <div class="box"><h4>"My output printed twice!"</h4><p>A real bug caused by <code>fork</code> copying unflushed <code>printf</code> buffers. We hit it while preparing this page.</p></div>
+    <div class="box"><h4>Graceful shutdown</h4><p><code>kill</code>, <code>SIGTERM</code> vs <code>SIGKILL</code>: how containers and service managers stop processes.</p></div>
+  </div>
+</section>
+
+<!-- ================================================================ MAP -->
+<section class="block" id="map">
+  <h2>Big-picture map</h2>
+  <figure class="viz">
+    <div class="scroll-x">
+    <svg viewBox="0 0 760 300" role="img" aria-labelledby="map-t map-d" style="min-width:560px">
+      <title id="map-t">Concept map of Chapter 3</title>
+      <desc id="map-d">Three calls: fork creates a copy, exec replaces the program, wait waits for a child. Fork plus wait gives deterministic ordering. Fork plus exec, separated, lets the shell change file descriptors in between, which gives redirection and pipes. Signals, sent with kill, are the other main way to control processes.</desc>
+      <defs><marker id="ma" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="f-muted"/></marker></defs>
+      <a href="#c-fork"><rect x="20" y="16" width="220" height="62" rx="8" class="s-user"/><text x="130" y="42" text-anchor="middle" class="s-head">fork()</text><text x="130" y="62" text-anchor="middle" class="s-text-soft">copy the caller (§1, §2)</text></a>
+      <a href="#c-exec"><rect x="270" y="16" width="220" height="62" rx="8" class="s-violet"/><text x="380" y="42" text-anchor="middle" class="s-head">exec()</text><text x="380" y="62" text-anchor="middle" class="s-text-soft">become another program (§4)</text></a>
+      <a href="#c-wait"><rect x="520" y="16" width="220" height="62" rx="8" class="s-hw"/><text x="630" y="42" text-anchor="middle" class="s-head">wait()</text><text x="630" y="62" text-anchor="middle" class="s-text-soft">wait for a child (§3)</text></a>
+      <path d="M130 78 C 130 120, 300 130, 330 150M380 78v70M630 78 C 630 120, 460 130, 430 150" class="s-arrow" marker-end="url(#ma)"/>
+      <a href="#c-shell"><rect x="200" y="150" width="360" height="62" rx="8" class="s-kernel"/><text x="380" y="176" text-anchor="middle" class="s-head">The shell: fork → set up fds → exec → wait</text><text x="380" y="196" text-anchor="middle" class="s-text-soft">redirection &gt; and pipes | (§5)</text></a>
+      <a href="#c-signals"><rect x="200" y="232" width="360" height="52" rx="8" class="s-danger"/><text x="380" y="263" text-anchor="middle" class="s-head">Signals: kill(), SIGTERM, SIGKILL… (§6)</text></a>
+    </svg>
+    </div>
+    <figcaption><strong>Figure 1.</strong> Three small calls, combined by the shell. Click a box to jump to it.</figcaption>
+  </figure>
+</section>
+
+<!-- ================================================================ CONCEPTS -->
+<section class="block" id="concepts">
+  <h2>Core concepts</h2>
+
+  <!-- ------------------------------------------------ 1 -->
+  <article class="concept" id="c-fork">
+    <h3><span class="tag">Concept 1 / 6</span>fork(): the process copies itself</h3>
+    <p class="lead">One call goes in, two calls come out: <code>fork()</code> returns once in the parent and once in a brand-new child.</p>
+    <p><code>fork()</code> creates a new process that is an almost exact copy of the caller: same code, a copy of its memory, same register values, same open files. The new process — the <a class="gl" data-term="child">child</a> — doesn't start at <code>main()</code>. It comes to life <em>inside</em> <code>fork()</code>, as if it had made the call itself, and both processes continue from the line after it.</p>
+    <p>The only way to tell them apart is the return value: the <a class="gl" data-term="parent">parent</a> gets the child's PID, the child gets <strong>0</strong>, and on failure the parent gets <strong>−1</strong> and no child exists.</p>
+    <div class="box crux">
+      <p class="box-label">The crux</p>
+      <p>What interfaces should the OS present for process creation and control, and how should they be designed to be both easy to use and powerful?</p>
+    </div>
+    <div class="box definition">
+      <p class="box-label">Definition</p>
+      <p><code>pid_t fork(void)</code> creates a child process with its own copy of the caller's address space, registers and file-descriptor table. It returns the child's PID in the parent, 0 in the child, or −1 (in the parent) on error.</p>
+    </div>
+    <div class="box analogy">
+      <p class="box-label">Analogy</p>
+      <p>Photocopying a half-filled form. Both copies have exactly the same answers so far, and each can continue to be filled in differently. Someone stamped "ORIGINAL" or "COPY" on each — that's the return value.</p>
+      <p class="breaks"><strong>Where it breaks down:</strong> a photocopy shares nothing with the original. A forked child does share some things: open files point to the same kernel file objects (including the current file offset), so writes from both land in the same file.</p>
+    </div>
+    <div class="code" id="code-p1">
+      <div class="code-head"><span class="fname">p1.c</span><span class="badge">book Fig. 5.1, lightly modernized</span></div>
+      <div class="code-body"><pre><code class="language-c">
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+
+int main(void) {
+    printf("hello world (pid:%d)\n", (int) getpid());
+    int rc = fork();
+    if (rc &lt; 0) {                 // fork failed
+        fprintf(stderr, "fork failed\n");
+        exit(1);
+    } else if (rc == 0) {         // child (new process)
+        printf("hello, I am child (pid:%d)\n", (int) getpid());
+    } else {                      // parent goes down this path
+        printf("hello, I am parent of %d (pid:%d)\n", rc, (int) getpid());
+    }
+    return 0;
+}</code></pre></div>
+    </div>
+    <ol class="annot" data-for="code-p1">
+      <li data-lines="6"><span class="ln">L6</span><span>Runs once — only the original process exists yet.</span></li>
+      <li data-lines="7"><span class="ln">L7</span><span>From here on there are two processes, both about to return from <code>fork()</code> with different <code>rc</code> values.</span></li>
+      <li data-lines="8-10"><span class="ln">L8–10</span><span>−1: no child was created (e.g. too many processes).</span></li>
+      <li data-lines="11-12"><span class="ln">L11–12</span><span>Only the child sees 0. Its own PID comes from <code>getpid()</code>.</span></li>
+      <li data-lines="13-15"><span class="ln">L13–15</span><span>The parent sees the child's PID — that's how it can later wait for or signal it.</span></li>
+    </ol>
+    <div class="code term">
+      <div class="code-head"><span class="fname">terminal — real run</span></div>
+      <div class="code-body"><pre><code><span class="prompt">$ </span>gcc -Wall -o p1 p1.c &amp;&amp; ./p1
+hello world (pid:1602)
+hello, I am parent of 1603 (pid:1602)
+hello, I am child (pid:1603)</code></pre></div>
+    </div>
+    <p>"hello world" printed once: the child never ran line 6. And the child really has its <em>own copy</em> of memory — same variable, same virtual address, different values:</p>
+    <div class="code" id="code-copy">
+      <div class="code-head"><span class="fname">copy.c</span><span class="badge">our example</span></div>
+      <div class="code-body"><pre><code class="language-c">
+#include &lt;stdio.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;sys/wait.h&gt;
+
+int main(void) {
+    int x = 100;
+    int rc = fork();
+    if (rc == 0) {                 // child
+        x = x + 1;
+        printf("child : x = %d at %p\n", x, (void *) &amp;x);
+    } else {                       // parent
+        wait(NULL);
+        x = x - 1;
+        printf("parent: x = %d at %p\n", x, (void *) &amp;x);
+    }
+    return 0;
+}</code></pre></div>
+    </div>
+    <div class="code term">
+      <div class="code-head"><span class="fname">terminal — real run</span></div>
+      <div class="code-body"><pre><code><span class="prompt">$ </span>./copy
+child : x = 101 at 0x7ffff8742870
+parent: x = 99 at 0x7ffff8742870</code></pre></div>
+    </div>
+    <p>Same address, different values — memory virtualization from Ch. 01 again. Each <code>fork()</code> doubles the number of processes that run the code after it. Try it:</p>
+    <figure class="viz" id="fork-tree">
+      <div class="controls" style="margin-top:0">
+        <label class="field">sequential <code>fork();</code> calls: <output id="ft-n-o">2</output><input type="range" id="ft-n" min="1" max="4" value="2"></label>
+      </div>
+      <div class="code no-gutter" style="margin:.4rem 0"><div class="code-body"><pre><code id="ft-code"></code></pre></div></div>
+      <div class="tree-wrap"><svg id="ft-svg" viewBox="0 0 600 220" role="img" aria-label="Process tree created by the forks"></svg></div>
+      <div class="status-line" id="ft-status" aria-live="polite"></div>
+      <figcaption><strong>Figure 2 — process tree.</strong> Each row is one <code>fork()</code>: every process alive at that point creates one child (new processes shown in violet).</figcaption>
+    </figure>
+    <div class="box gotcha">
+      <p class="box-label">⚠ Common mistake</p>
+      <p>Not checking for −1, or treating any non-zero value as "parent". On failure there is no child, and code that later calls <code>wait()</code> or <code>kill(rc, …)</code> with −1 does surprising things (<code>kill(-1, sig)</code> signals every process you're allowed to signal).</p>
+      <div class="wr-grid">
+        <div class="wrong"><div class="label">✗ Ignores failure</div><div class="code no-gutter"><div class="code-body"><pre><code class="language-c">if (fork()) {
+    /* "parent" — also runs on error! */
+}</code></pre></div></div></div>
+        <div class="right"><div class="label">✓ Three cases</div><div class="code no-gutter"><div class="code-body"><pre><code class="language-c">pid_t rc = fork();
+if (rc &lt; 0)       { perror("fork"); exit(1); }
+else if (rc == 0) { /* child  */ }
+else              { /* parent */ }</code></pre></div></div></div>
+      </div>
+    </div>
+    <details class="hood">
+      <summary>Under the hood: copying a whole address space sounds slow <span class="chip">advanced</span></summary>
+      <div class="details-body">
+        <p>It would be, so modern kernels don't copy eagerly. They use <strong>copy-on-write</strong>: parent and child initially share the same physical pages, marked read-only; a page is copied only when one of them writes to it. A <code>fork()</code> immediately followed by <code>exec()</code> therefore copies almost nothing. Copy-on-write appears in this guide with the VAX/VMS chapter (Ch. 19). Linux implements <code>fork()</code> on top of a more general call, <code>clone()</code>, and POSIX also offers <code>posix_spawn()</code>, which combines create-and-run in one call.</p>
+      </div>
+    </details>
+  </article>
+
+  <!-- ------------------------------------------------ 2 -->
+  <article class="concept" id="c-order">
+    <h3><span class="tag">Concept 2 / 6</span>Who runs first? Nondeterminism</h3>
+    <p class="lead">After <code>fork()</code> there are two ready processes. Which one runs next is the scheduler's choice, not yours.</p>
+    <p>The book shows <code>p1</code> printing the parent's line first in one run and the child's line first in another. Both are correct. On our Linux test machine the parent happened to print first in all 40 runs we tried — Linux tends to let the parent keep running — but nothing guarantees it, and it can differ under load, on another kernel, or on another OS.</p>
+    <div class="box definition">
+      <p class="box-label">Definition</p>
+      <p>A program is <a class="gl" data-term="nondeterministic">nondeterministic</a> when the same input can produce different outputs or orderings from run to run, here because the order in which the scheduler runs the processes varies.</p>
+    </div>
+    <div class="box analogy">
+      <p class="box-label">Analogy</p>
+      <p>Two runners told "go" at the same moment by the same starter. Who reaches the finish first depends on things neither controls.</p>
+      <p class="breaks"><strong>Where it breaks down:</strong> runners at least start together. On one CPU only one process can run at a time; the order is entirely a scheduling decision, and on many CPUs they really can run at the same instant.</p>
+    </div>
+    <figure class="viz">
+      <div class="scroll-x">
+      <svg viewBox="0 0 680 170" role="img" aria-labelledby="nd-t nd-d" style="min-width:520px">
+        <title id="nd-t">Two valid orderings after fork</title>
+        <desc id="nd-d">Two timelines. In the first, after fork the parent prints, then the child prints. In the second, after fork the child prints, then the parent prints. Both are possible.</desc>
+        <text x="10" y="22" class="s-head">Run A</text>
+        <rect x="80" y="8" width="130" height="26" rx="5" class="s-box"/><text x="145" y="26" text-anchor="middle" class="s-text">hello world</text>
+        <rect x="216" y="8" width="70" height="26" rx="5" class="s-kernel"/><text x="251" y="26" text-anchor="middle" class="s-text">fork</text>
+        <rect x="292" y="8" width="170" height="26" rx="5" class="s-user"/><text x="377" y="26" text-anchor="middle" class="s-text">parent prints</text>
+        <rect x="468" y="8" width="170" height="26" rx="5" class="s-violet"/><text x="553" y="26" text-anchor="middle" class="s-text">child prints</text>
+        <text x="10" y="82" class="s-head">Run B</text>
+        <rect x="80" y="68" width="130" height="26" rx="5" class="s-box"/><text x="145" y="86" text-anchor="middle" class="s-text">hello world</text>
+        <rect x="216" y="68" width="70" height="26" rx="5" class="s-kernel"/><text x="251" y="86" text-anchor="middle" class="s-text">fork</text>
+        <rect x="292" y="68" width="170" height="26" rx="5" class="s-violet"/><text x="377" y="86" text-anchor="middle" class="s-text">child prints</text>
+        <rect x="468" y="68" width="170" height="26" rx="5" class="s-user"/><text x="553" y="86" text-anchor="middle" class="s-text">parent prints</text>
+        <path d="M80 120h560" class="s-arrow"/><text x="640" y="140" text-anchor="end" class="s-text-soft">time →</text>
+        <text x="80" y="160" class="s-text-soft">the scheduler picks; your program must be correct either way</text>
+      </svg>
+      </div>
+      <figcaption><strong>Figure 3 — timeline.</strong> Both orders are legal outputs of the same program.</figcaption>
+    </figure>
+    <p>Example: a test that checks <code>p1</code>'s output line by line would pass on our machine thousands of times and then fail somewhere else. If order matters, enforce it — usually with <code>wait()</code>.</p>
+    <div class="box gotcha">
+      <p class="box-label">⚠ Common mistake</p>
+      <div class="wr-grid">
+        <div class="wrong"><div class="label">✗ "It always printed in this order on my laptop."</div><p>Observed order is not guaranteed order.</p></div>
+        <div class="right"><div class="label">✓ Synchronize explicitly</div><p>Use <code>wait()</code> (or pipes, signals, locks…) to make an ordering you depend on certain.</p></div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ------------------------------------------------ 3 -->
+  <article class="concept" id="c-wait">
+    <h3><span class="tag">Concept 3 / 6</span>wait(): wait for a child to finish</h3>
+    <p class="lead"><code>wait()</code> blocks the parent until one of its children exits, then reports which one and how.</p>
+    <p>Add <code>wait(NULL)</code> in the parent's branch and the output becomes deterministic: if the child runs first, it prints first; if the parent runs first, it immediately blocks in <code>wait()</code> until the child has printed and exited. Either way, the child's line comes first. <code>wait()</code> is also what reaps the zombie from Ch. 02.</p>
+    <div class="box definition">
+      <p class="box-label">Definition</p>
+      <p><code>pid_t wait(int *status)</code> blocks until any child of the caller terminates, reaps it, and returns its PID (or −1 if the caller has no children). <code>waitpid(pid, &amp;status, options)</code> waits for a specific child and supports options such as <code>WNOHANG</code> (don't block). Macros such as <code>WIFEXITED</code>/<code>WEXITSTATUS</code> and <code>WIFSIGNALED</code>/<code>WTERMSIG</code> decode the status.</p>
+    </div>
+    <div class="box analogy">
+      <p class="box-label">Analogy</p>
+      <p>Dropping your car off for a repair and sitting in the waiting room. You can't drive off until the mechanic calls your name and hands you the report (the exit status).</p>
+      <p class="breaks"><strong>Where it breaks down:</strong> plain <code>wait()</code> answers for <em>any</em> of your children, not a particular one — like being handed whichever car is ready first. Use <code>waitpid()</code> to wait for a specific child.</p>
+    </div>
+    <div class="code" id="code-p2">
+      <div class="code-head"><span class="fname">p2.c</span><span class="badge">book Fig. 5.2, lightly modernized</span></div>
+      <div class="code-body"><pre><code class="language-c">
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;sys/wait.h&gt;
+
+int main(void) {
+    printf("hello world (pid:%d)\n", (int) getpid());
+    int rc = fork();
+    if (rc &lt; 0) {
+        fprintf(stderr, "fork failed\n");
+        exit(1);
+    } else if (rc == 0) {         // child
+        printf("hello, I am child (pid:%d)\n", (int) getpid());
+    } else {                      // parent waits for the child to finish
+        int wc = wait(NULL);
+        printf("hello, I am parent of %d (wc:%d) (pid:%d)\n", rc, wc, (int) getpid());
+    }
+    return 0;
+}</code></pre></div>
+    </div>
+    <ol class="annot" data-for="code-p2">
+      <li data-lines="15"><span class="ln">L15</span><span>The parent blocks here until the child exits. <code>NULL</code> means "I don't need the exit status".</span></li>
+      <li data-lines="16"><span class="ln">L16</span><span><code>wc</code> (the return value) equals <code>rc</code>: the PID of the child that finished.</span></li>
+    </ol>
+    <div class="code term">
+      <div class="code-head"><span class="fname">terminal — real run</span></div>
+      <div class="code-body"><pre><code><span class="prompt">$ </span>./p2
+hello world (pid:1579)
+hello, I am child (pid:1580)
+hello, I am parent of 1580 (wc:1580) (pid:1579)</code></pre></div>
+    </div>
+    <p>And the status tells you <em>how</em> the child ended. Here the child calls <code>wait()</code> too — it has no children, so it gets −1:</p>
+    <div class="code" id="code-wc">
+      <div class="code-head"><span class="fname">waitchild.c</span><span class="badge">our example</span></div>
+      <div class="code-body"><pre><code class="language-c">
+#include &lt;stdio.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;string.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;sys/wait.h&gt;
+
+int main(void) {
+    int rc = fork();
+    if (rc == 0) {                       // the child has no children of its own
+        int r = wait(NULL);
+        printf("child : wait() = %d (%s)\n", r, strerror(errno));
+        return 7;
+    }
+    int status;
+    int r = wait(&amp;status);
+    printf("parent: wait() = %d, child %d exited with %d\n", r, rc, WEXITSTATUS(status));
+    return 0;
+}</code></pre></div>
+    </div>
+    <div class="code term">
+      <div class="code-head"><span class="fname">terminal — real run</span></div>
+      <div class="code-body"><pre><code><span class="prompt">$ </span>./waitchild
+child : wait() = -1 (No child processes)
+parent: wait() = 899, child 899 exited with 7</code></pre></div>
+    </div>
+    <div class="box gotcha">
+      <p class="box-label">⚠ Common mistake</p>
+      <p>Reading <code>status</code> directly as the exit code. It's an encoded value; <code>return 7</code> does not make <code>status == 7</code>.</p>
+      <div class="wr-grid">
+        <div class="wrong"><div class="label">✗ Raw value</div><div class="code no-gutter"><div class="code-body"><pre><code class="language-c">wait(&amp;status);
+printf("%d\n", status);   /* 1792, not 7 */</code></pre></div></div></div>
+        <div class="right"><div class="label">✓ Decode it</div><div class="code no-gutter"><div class="code-body"><pre><code class="language-c">wait(&amp;status);
+if (WIFEXITED(status))
+    printf("%d\n", WEXITSTATUS(status));  /* 7 */</code></pre></div></div></div>
+      </div>
+      <p style="font-size:.9rem;color:var(--muted)">(On Linux the exit code sits in the second byte: 7 × 256 = 1792. Don't rely on the layout — use the macros.)</p>
+    </div>
+  </article>
+
+  <!-- ------------------------------------------------ 4 -->
+  <article class="concept" id="c-exec">
+    <h3><span class="tag">Concept 4 / 6</span>exec(): become a different program</h3>
+    <p class="lead"><code>exec()</code> doesn't create a process. It replaces the program running in the current one.</p>
+    <p>Given an executable and arguments, <code>exec()</code> loads that program's code and static data over the current ones, re-initializes the heap and stack, and starts the new program at its entry point, with the arguments as its <code>argv</code>. The PID stays the same, and open file descriptors stay open (unless marked close-on-exec). A successful <code>exec()</code> never returns — there's no old program left to return to.</p>
+    <div class="box definition">
+      <p class="box-label">Definition</p>
+      <p>The <code>exec</code> family replaces the calling process's program image with a new one. The underlying system call on Linux is <code>execve()</code>; the C library provides <code>execl</code>, <code>execlp</code>, <code>execle</code>, <code>execv</code>, <code>execvp</code> (and others) as front-ends. Returns only on error, with −1.</p>
+    </div>
+    <div class="box analogy">
+      <p class="box-label">Analogy</p>
+      <p>An actor who stays on stage but switches to a completely different script mid-show. Same person (PID), same microphone (open files), entirely new lines.</p>
+      <p class="breaks"><strong>Where it breaks down:</strong> an actor remembers the old play. After <code>exec()</code>, nothing of the old program's memory survives — only the kernel-side state such as PID, parent and open file descriptors carries over.</p>
+    </div>
+    <div class="code" id="code-p3">
+      <div class="code-head"><span class="fname">p3.c</span><span class="badge">book Fig. 5.3, modernized</span></div>
+      <div class="code-body"><pre><code class="language-c">
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;sys/wait.h&gt;
+
+int main(void) {
+    printf("hello world (pid:%d)\n", (int) getpid());
+    fflush(stdout);
+    int rc = fork();
+    if (rc &lt; 0) {
+        fprintf(stderr, "fork failed\n");
+        exit(1);
+    } else if (rc == 0) {         // child: become "wc p3.c"
+        printf("hello, I am child (pid:%d)\n", (int) getpid());
+        fflush(stdout);
+        char *myargs[] = { "wc", "p3.c", NULL };   // argv for the new program
+        execvp(myargs[0], myargs);                 // only returns on error
+        perror("execvp");
+        exit(1);
+    } else {                      // parent
+        int wc = wait(NULL);
+        printf("hello, I am parent of %d (wc:%d) (pid:%d)\n", rc, wc, (int) getpid());
+    }
+    return 0;
+}</code></pre></div>
+    </div>
+    <ol class="annot" data-for="code-p3">
+      <li data-lines="8,15"><span class="ln">L8, L15</span><span><strong>Added by us:</strong> flush stdio before <code>fork</code>/<code>exec</code>, so buffered text isn't duplicated or lost (see the gotcha below).</span></li>
+      <li data-lines="16"><span class="ln">L16</span><span>The new program's <code>argv</code>: name, arguments, then a terminating <code>NULL</code>. (The book uses <code>strdup</code>; string literals work because <code>execvp</code> doesn't modify them.)</span></li>
+      <li data-lines="17"><span class="ln">L17</span><span><code>execvp</code>: <b>v</b> = arguments as a vector, <b>p</b> = search <code>$PATH</code> for <code>wc</code>.</span></li>
+      <li data-lines="18-19"><span class="ln">L18–19</span><span><strong>Added by us:</strong> reaching this line means <code>exec</code> failed (e.g. program not found). Without <code>exit</code>, the child would carry on running the parent's code.</span></li>
+    </ol>
+    <div class="code term">
+      <div class="code-head"><span class="fname">terminal — real run</span></div>
+      <div class="code-body"><pre><code><span class="prompt">$ </span>./p3
+hello world (pid:881)
+hello, I am child (pid:882)
+ 25  98 800 p3.c
+hello, I am parent of 882 (wc:882) (pid:881)</code></pre></div>
+    </div>
+    <p>The child (PID 882) <em>became</em> <code>wc</code> and printed the line, word and byte counts of <code>p3.c</code>. The exec variants differ only in how you pass things:</p>
+    <div class="table-wrap">
+      <table class="ex-table">
+        <thead><tr><th>Function</th><th>Arguments as</th><th>Finds program via <code>$PATH</code>?</th><th>Custom environment?</th></tr></thead>
+        <tbody>
+          <tr><td>execl</td><td>list: <code>"ls", "-l", NULL</code></td><td class="no">no (full path)</td><td class="no">no</td></tr>
+          <tr><td>execlp</td><td>list</td><td class="yes">yes</td><td class="no">no</td></tr>
+          <tr><td>execle</td><td>list</td><td class="no">no</td><td class="yes">yes</td></tr>
+          <tr><td>execv</td><td>vector: <code>char *argv[]</code></td><td class="no">no</td><td class="no">no</td></tr>
+          <tr><td>execvp</td><td>vector</td><td class="yes">yes</td><td class="no">no</td></tr>
+          <tr><td>execve</td><td>vector</td><td class="no">no</td><td class="yes">yes — the actual system call</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="box gotcha">
+      <p class="box-label">⚠ Common mistake — output printed twice</p>
+      <p>While preparing this page we ran the book's <code>p1.c</code> with its output going into a pipe, and "hello world" appeared <strong>twice</strong>. <code>printf</code> doesn't write immediately: stdio keeps text in a buffer inside the process's memory. To a terminal it's flushed at each newline; to a file or pipe only when the buffer fills or the program exits. <code>fork()</code> copies the process's memory — including any unflushed buffer — so both processes later print it.</p>
+      <div class="wr-grid">
+        <div class="wrong"><div class="label">✗ Real run: ./p1 &gt; out.txt (book's p1.c)</div><div class="code no-gutter term"><div class="code-body"><pre><code><span class="prompt">$ </span>cat out.txt
+hello world (pid:876)
+hello, I am parent of 877 (pid:876)
+<span class="bad">hello world (pid:876)</span>
+hello, I am child (pid:877)</code></pre></div></div></div>
+        <div class="right"><div class="label">✓ Flush before fork() and exec()</div><div class="code no-gutter"><div class="code-body"><pre><code class="language-c">printf("hello world (pid:%d)\n", getpid());
+fflush(stdout);       /* empty the buffer first */
+int rc = fork();</code></pre></div></div></div>
+      </div>
+      <p>The same thing happens on a terminal if the text has no newline yet: our <code>dup.c</code> prints <code>printf("before fork ")</code> then forks, and the output was <code>before fork child</code> / <code>before fork parent</code>. Before <code>exec()</code> the opposite problem appears: unflushed text is simply lost, because the new program replaces the old buffer.</p>
+    </div>
+  </article>
+
+  <!-- ------------------------------------------------ 5 -->
+  <article class="concept" id="c-shell">
+    <h3><span class="tag">Concept 5 / 6</span>Why separate fork and exec? The shell</h3>
+    <p class="lead">Because the shell gets a moment <em>between</em> <code>fork()</code> and <code>exec()</code> to change the child's environment — and that one moment gives you redirection and pipes.</p>
+    <p>A shell is just a user program in a loop: print a prompt, read a command, <code>fork()</code> a child, have the child <code>exec()</code> the command, <code>wait()</code> for it, repeat. Since the child is still running shell code until it calls <code>exec()</code>, the shell can first rearrange the child's file descriptors. The new program inherits them and never knows.</p>
+    <ul>
+      <li><strong>Redirection</strong> <code>wc p4.c &gt; out.txt</code>: in the child, close fd 1 (standard output), then open the file. UNIX gives a new file the <em>lowest free</em> descriptor, so the file becomes fd 1. <code>wc</code> writes to fd 1 as usual — into the file.</li>
+      <li><strong>Pipes</strong> <code>grep -o fork p1.c | wc -l</code>: the shell creates a kernel <a class="gl" data-term="pipe">pipe</a> (a queue with a read end and a write end), forks two children, connects the first one's stdout to the write end and the second one's stdin to the read end (<code>dup2</code>), then execs both.</li>
+    </ul>
+    <div class="box definition">
+      <p class="box-label">Definition</p>
+      <p><strong>I/O redirection</strong> changes which file a process's standard descriptors refer to before it runs. <code>dup2(old, new)</code> makes descriptor <code>new</code> refer to the same open file as <code>old</code>. <code>pipe(fds)</code> creates a one-way in-kernel channel: bytes written to <code>fds[1]</code> can be read from <code>fds[0]</code>.</p>
+    </div>
+    <div class="box analogy">
+      <p class="box-label">Analogy</p>
+      <p>A stage manager who, after the understudy is ready (fork) but before the curtain rises (exec), quietly reroutes the actor's microphone to a recorder instead of the speakers. The actor performs as always.</p>
+      <p class="breaks"><strong>Where it breaks down:</strong> rewiring a microphone is a physical act. Here it's just changing entries in the process's file-descriptor table — a few cheap system calls.</p>
+    </div>
+    <div class="box">
+      <p class="box-label">Tip — Lampson's law</p>
+      <p>The book cites Butler Lampson's design advice — <em>"Get it right."</em> — and argues that UNIX's simple fork/exec split is a case where the designers did.</p>
+    </div>
+    <div class="code" id="code-p4">
+      <div class="code-head"><span class="fname">p4.c</span><span class="badge">book Fig. 5.4, modernized</span></div>
+      <div class="code-body"><pre><code class="language-c">
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;sys/wait.h&gt;
+
+int main(void) {
+    int rc = fork();
+    if (rc &lt; 0) {
+        fprintf(stderr, "fork failed\n");
+        exit(1);
+    } else if (rc == 0) {         // child: redirect standard output to a file
+        close(STDOUT_FILENO);     // fd 1 is now free
+        int fd = open("./p4.output", O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
+        if (fd != STDOUT_FILENO) { perror("open"); exit(1); }   // lowest free fd = 1
+        char *myargs[] = { "wc", "p4.c", NULL };
+        execvp(myargs[0], myargs);   // wc writes to fd 1 = the file
+        perror("execvp");
+        exit(1);
+    } else {
+        wait(NULL);
+    }
+    return 0;
+}</code></pre></div>
+    </div>
+    <ol class="annot" data-for="code-p4">
+      <li data-lines="13"><span class="ln">L13</span><span>Only in the child: close standard output. The parent's fd 1 is untouched (separate fd tables).</span></li>
+      <li data-lines="14-15"><span class="ln">L14–15</span><span><code>open</code> returns the lowest free descriptor — 1. We check it (added by us; the book assumes it).</span></li>
+      <li data-lines="17"><span class="ln">L17</span><span><code>wc</code> inherits the fd table and writes its result to fd 1, i.e. the file.</span></li>
+    </ol>
+    <div class="code term">
+      <div class="code-head"><span class="fname">terminal — real run</span></div>
+      <div class="code-body"><pre><code><span class="prompt">$ </span>./p4
+<span class="prompt">$ </span>cat p4.output
+ 24 103 738 p4.c</code></pre></div>
+    </div>
+    <p>Nothing appeared on screen — <code>wc</code>'s output went to the file. Pipes work the same way with <code>pipe()</code> and <code>dup2()</code>:</p>
+    <div class="code" id="code-pipe">
+      <div class="code-head"><span class="fname">pipe.c</span><span class="badge">our example</span></div>
+      <div class="code-body"><pre><code class="language-c">
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;sys/wait.h&gt;
+
+/* Runs the equivalent of:  grep -o fork p1.c | wc -l  */
+int main(void) {
+    int fds[2];
+    if (pipe(fds) &lt; 0) { perror("pipe"); exit(1); }   // fds[0] = read end, fds[1] = write end
+
+    if (fork() == 0) {                    // first child: grep, writes into the pipe
+        dup2(fds[1], STDOUT_FILENO);      // stdout -&gt; pipe's write end
+        close(fds[0]); close(fds[1]);
+        execlp("grep", "grep", "-o", "fork", "p1.c", (char *) NULL);
+        perror("exec grep"); exit(1);
+    }
+    if (fork() == 0) {                    // second child: wc, reads from the pipe
+        dup2(fds[0], STDIN_FILENO);       // stdin -&gt; pipe's read end
+        close(fds[0]); close(fds[1]);
+        execlp("wc", "wc", "-l", (char *) NULL);
+        perror("exec wc"); exit(1);
+    }
+    close(fds[0]); close(fds[1]);         // parent must close both ends, or wc never sees EOF
+    wait(NULL); wait(NULL);
+    return 0;
+}</code></pre></div>
+    </div>
+    <ol class="annot" data-for="code-pipe">
+      <li data-lines="9"><span class="ln">L9</span><span>Create the pipe before forking, so both children inherit both ends.</span></li>
+      <li data-lines="12-13"><span class="ln">L12–13</span><span>grep's stdout becomes the write end; then close the original pipe fds it no longer needs.</span></li>
+      <li data-lines="18-19"><span class="ln">L18–19</span><span>wc's stdin becomes the read end.</span></li>
+      <li data-lines="23"><span class="ln">L23</span><span><code>wc</code> stops reading only when <em>every</em> write end is closed. If the parent kept its copy open, <code>wc</code> would wait forever.</span></li>
+    </ol>
+    <div class="code term">
+      <div class="code-head"><span class="fname">terminal — real run</span></div>
+      <div class="code-body"><pre><code><span class="prompt">$ </span>./pipe
+3
+<span class="prompt">$ </span>grep -o fork p1.c | wc -l      <span class="cmt"># the shell gives the same answer</span>
+3</code></pre></div>
+    </div>
+    <div class="box gotcha">
+      <p class="box-label">⚠ Common mistake</p>
+      <p>Forgetting to close unused pipe ends. The reader gets end-of-file only once no process holds the write end open — including the parent and the reader itself.</p>
+      <div class="wr-grid">
+        <div class="wrong"><div class="label">✗ wc hangs forever</div><div class="code no-gutter"><div class="code-body"><pre><code class="language-c">/* parent */
+wait(NULL); wait(NULL);   /* fds[1] still open */</code></pre></div></div></div>
+        <div class="right"><div class="label">✓ Close, then wait</div><div class="code no-gutter"><div class="code-body"><pre><code class="language-c">close(fds[0]); close(fds[1]);
+wait(NULL); wait(NULL);</code></pre></div></div></div>
+      </div>
+    </div>
+  </article>
+
+  <!-- ------------------------------------------------ 6 -->
+  <article class="concept" id="c-signals">
+    <h3><span class="tag">Concept 6 / 6</span>Signals and other process tools</h3>
+    <p class="lead">Beyond fork, exec and wait, processes are controlled by sending them <em>signals</em>, and observed with tools like <code>ps</code> and <code>top</code>.</p>
+    <p>The <code>kill()</code> system call sends a <a class="gl" data-term="signal">signal</a> to a process: a small asynchronous notification such as "please terminate", "stop", "continue" or "your child exited". A process can install a <strong>handler</strong> function for most signals; when the signal arrives, the handler runs. Two signals can't be caught or ignored: <code>SIGKILL</code> and <code>SIGSTOP</code>.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Signal</th><th>Usual source</th><th>Default action</th><th>Can be caught?</th></tr></thead>
+        <tbody>
+          <tr><td><code>SIGINT</code> (2)</td><td>Ctrl-C in the terminal</td><td>terminate</td><td class="yes">yes</td></tr>
+          <tr><td><code>SIGTERM</code> (15)</td><td><code>kill PID</code> (the default)</td><td>terminate</td><td class="yes">yes — clean up, then exit</td></tr>
+          <tr><td><code>SIGKILL</code> (9)</td><td><code>kill -9 PID</code></td><td>terminate</td><td class="no">no</td></tr>
+          <tr><td><code>SIGSTOP</code> / <code>SIGTSTP</code></td><td><code>kill -STOP</code> / Ctrl-Z</td><td>stop (suspend)</td><td>SIGSTOP no · SIGTSTP yes</td></tr>
+          <tr><td><code>SIGCONT</code></td><td><code>kill -CONT</code>, <code>fg</code></td><td>continue if stopped</td><td class="yes">yes</td></tr>
+          <tr><td><code>SIGCHLD</code></td><td>the kernel, when a child exits</td><td>ignored</td><td class="yes">yes — handy for reaping</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="box definition">
+      <p class="box-label">Definition</p>
+      <p>A <strong>signal</strong> is an asynchronous notification delivered by the kernel to a process. <code>kill(pid, sig)</code> sends one; <code>sigaction()</code> installs a handler. Numbers above are for Linux; use the names in code.</p>
+    </div>
+    <div class="box analogy">
+      <p class="box-label">Analogy</p>
+      <p>A tap on the shoulder. <code>SIGTERM</code> is "please wrap up" — you can finish your sentence and leave politely. <code>SIGKILL</code> is security physically carrying you out.</p>
+      <p class="breaks"><strong>Where it breaks down:</strong> a tap is noticed immediately. A signal is delivered when the kernel next has the chance (e.g. when the process is scheduled), and a handler interrupts whatever code was running, which is why handlers must be kept tiny.</p>
+    </div>
+    <div class="code" id="code-sig">
+      <div class="code-head"><span class="fname">sig.c</span><span class="badge">our example</span></div>
+      <div class="code-body"><pre><code class="language-c">
+#include &lt;signal.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;sys/wait.h&gt;
+
+static volatile sig_atomic_t got = 0;
+static void on_term(int sig) { got = sig; }   // handler: just record it
+
+int main(void) {
+    pid_t pid = fork();
+    if (pid == 0) {                                   // child
+        struct sigaction sa = { 0 };
+        sa.sa_handler = on_term;
+        sigaction(SIGTERM, &amp;sa, NULL);                // catch SIGTERM
+        while (!got) pause();                         // sleep until a signal arrives
+        printf("child : caught signal %d, cleaning up\n", got);
+        exit(0);
+    }
+    sleep(1);
+    kill(pid, SIGTERM);                               // polite request to stop
+    int status;
+    waitpid(pid, &amp;status, 0);
+    printf("parent: child exited normally? %s\n", WIFEXITED(status) ? "yes" : "no");
+
+    pid = fork();
+    if (pid == 0) { while (1) pause(); }              // a child that ignores nothing, catches nothing
+    kill(pid, SIGKILL);                               // cannot be caught or ignored
+    waitpid(pid, &amp;status, 0);
+    printf("parent: second child killed by signal %d\n", WTERMSIG(status));
+    return 0;
+}</code></pre></div>
+    </div>
+    <ol class="annot" data-for="code-sig">
+      <li data-lines="7-8"><span class="ln">L7–8</span><span>The handler only sets a flag — doing real work (like <code>printf</code>) inside a handler is unsafe.</span></li>
+      <li data-lines="13-16"><span class="ln">L13–16</span><span>The child installs the handler, then sleeps in <code>pause()</code> until a signal wakes it.</span></li>
+      <li data-lines="20-21"><span class="ln">L20–21</span><span>The <code>sleep(1)</code> gives the child time to install its handler; production code would synchronize properly instead.</span></li>
+      <li data-lines="26-28"><span class="ln">L26–28</span><span><code>SIGKILL</code>: no handler can run; the kernel ends the process. <code>WTERMSIG</code> reports which signal did it.</span></li>
+    </ol>
+    <div class="code term">
+      <div class="code-head"><span class="fname">terminal — real run</span></div>
+      <div class="code-body"><pre><code><span class="prompt">$ </span>./sig
+child : caught signal 15, cleaning up
+parent: child exited normally? yes
+parent: second child killed by signal 9</code></pre></div>
+    </div>
+    <p>Useful tools: <code>ps</code> lists processes (<code>ps -ef</code>, <code>ps -o pid,ppid,stat,cmd</code>); <code>top</code> shows them live with CPU and memory use; <code>man</code> documents every call — the book's advice is to read the man pages (<code>man 2 fork</code>, <code>man 2 wait</code>, <code>man 3 exec</code>).</p>
+    <div class="box gotcha">
+      <p class="box-label">⚠ Common mistake</p>
+      <div class="wr-grid">
+        <div class="wrong"><div class="label">✗ Reaching for kill -9 first</div><p>The process gets no chance to flush files, remove temp files or finish a transaction.</p></div>
+        <div class="right"><div class="label">✓ SIGTERM, then SIGKILL if needed</div><p><code>kill PID</code>, wait a few seconds, and only then <code>kill -9 PID</code>. Service managers and container runtimes follow the same pattern.</p></div>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ================================================================ LAB -->
+<section class="block" id="labs">
+  <h2>Interactive lab</h2>
+  <div class="lab" id="lab-sh">
+    <h3><span class="lab-tag">LAB</span> Inside the shell: step through a command</h3>
+    <p style="margin-top:0">Pick a command and step through the system calls a UNIX shell makes to run it. Watch the processes appear and the file-descriptor tables change. (PIDs are illustrative.)</p>
+    <div class="controls">
+      <label class="field" style="flex:2 1 280px">command
+        <select id="sh-cmd">
+          <option value="plain">$ wc p3.c</option>
+          <option value="redir">$ wc p4.c &gt; out.txt</option>
+          <option value="pipe">$ grep -o fork p1.c | wc -l</option>
+        </select>
+      </label>
+    </div>
+    <div class="controls">
+      <button class="btn primary" type="button" id="sh-play">▶ Play</button>
+      <button class="btn" type="button" id="sh-prev">← Back</button>
+      <button class="btn" type="button" id="sh-next">Step →</button>
+      <button class="btn" type="button" id="sh-reset">↺ Reset</button>
+    </div>
+    <div class="status-line" id="sh-status" aria-live="polite"></div>
+    <div class="sh-procs" id="sh-procs" style="margin-top:.7rem"></div>
+    <p class="sh-pipe" id="sh-pipe"></p>
+    <div class="screen sh-term" id="sh-term" aria-label="Terminal"></div>
+    <ol class="sh-log" id="sh-log" aria-label="System calls so far"></ol>
+  </div>
+</section>
+
+<!-- ================================================================ CASE -->
+<section class="block" id="case">
+  <h2>Worked example: a 30-line shell</h2>
+  <p><strong>Goal.</strong> Turn the chapter into a working (tiny) shell: read a line, split it into words, run it as a command, support <code>&gt; file</code>, and print the exit status. This puts fork, exec, wait and redirection together.</p>
+  <div class="code" id="code-mini">
+    <div class="code-head"><span class="fname">minish.c</span><span class="badge">our example</span></div>
+    <div class="code-body"><pre><code class="language-c">
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;sys/wait.h&gt;
+
+int main(void) {
+    char line[256];
+    while (printf("minish&gt; "), fflush(stdout), fgets(line, sizeof line, stdin)) {
+        char *argv[32], *out = NULL;
+        int argc = 0;
+        for (char *w = strtok(line, " \t\n"); w &amp;&amp; argc &lt; 31; w = strtok(NULL, " \t\n")) {
+            if (strcmp(w, "&gt;") == 0) { out = strtok(NULL, " \t\n"); break; }
+            argv[argc++] = w;
+        }
+        argv[argc] = NULL;
+        if (argc == 0) continue;
+        if (strcmp(argv[0], "exit") == 0) break;      // a built-in: must run in the shell itself
+
+        pid_t pid = fork();
+        if (pid &lt; 0) { perror("fork"); continue; }
+        if (pid == 0) {                                // child
+            if (out) {                                 // redirection, between fork and exec
+                int fd = open(out, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+                if (fd &lt; 0) { perror(out); exit(1); }
+                dup2(fd, STDOUT_FILENO);
+                close(fd);
+            }
+            execvp(argv[0], argv);
+            perror(argv[0]);                           // only reached if exec failed
+            exit(127);
+        }
+        int status;
+        waitpid(pid, &amp;status, 0);                      // parent: wait for the command
+        if (WIFEXITED(status) &amp;&amp; WEXITSTATUS(status) != 0)
+            printf("[exit %d]\n", WEXITSTATUS(status));
+    }
+    return 0;
+}</code></pre></div>
+  </div>
+  <ol class="annot" data-for="code-mini">
+    <li data-lines="10"><span class="ln">L10</span><span>The shell loop: prompt (flushed — no newline!), read a line, stop at end of input.</span></li>
+    <li data-lines="13-17"><span class="ln">L13–17</span><span>Split into words; a <code>&gt;</code> takes the next word as the output file.</span></li>
+    <li data-lines="19"><span class="ln">L19</span><span><code>exit</code> must be built in: if a child ran it, only the child would exit. (Same reason <code>cd</code> must be a built-in.)</span></li>
+    <li data-lines="21-33"><span class="ln">L21–33</span><span>fork; in the child, set up redirection with <code>dup2</code>, then <code>execvp</code>. Exit code 127 is the shell convention for "command not found".</span></li>
+    <li data-lines="34-37"><span class="ln">L34–37</span><span>The parent waits and reports a non-zero exit status.</span></li>
+  </ol>
+  <div class="code term">
+    <div class="code-head"><span class="fname">terminal — real run</span></div>
+    <div class="code-body"><pre><code id="mini-run"><span class="prompt">$ </span>gcc -Wall -o minish minish.c &amp;&amp; ./minish
+<span class="prompt">minish&gt; </span>echo hello from a child
+hello from a child
+<span class="prompt">minish&gt; </span>ls nosuchfile
+ls: cannot access 'nosuchfile': No such file or directory
+[exit 2]
+<span class="prompt">minish&gt; </span>wc p1.c &gt; counts.txt
+<span class="prompt">minish&gt; </span>cat counts.txt
+ 17  71 542 p1.c
+<span class="prompt">minish&gt; </span>nosuchcmd
+nosuchcmd: No such file or directory
+[exit 127]
+<span class="prompt">minish&gt; </span>exit</code></pre></div>
+  </div>
+  <div class="box">
+    <p class="box-label">What it shows</p>
+    <ul>
+      <li>Every command runs in a fresh child; the shell survives failures (<code>nosuchcmd</code>) because only the child exits.</li>
+      <li>Redirection is three lines between <code>fork</code> and <code>exec</code> — the whole point of the split.</li>
+      <li>Exit statuses travel from the child's <code>exit()</code> through <code>waitpid</code> to the shell (<code>ls</code> on a missing file exits with 2).</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================================================================ TAKEAWAYS -->
+<section class="block" id="takeaways">
+  <h2>Key takeaways</h2>
+  <ul class="takeaways">
+    <li><code>fork()</code> creates a near-identical child; it returns the child's PID in the parent, 0 in the child, −1 on failure.</li>
+    <li>The child gets its <strong>own copy</strong> of memory (same addresses, independent values) but shares open files with the parent.</li>
+    <li>After <code>fork()</code>, run order is up to the scheduler — <strong>don't rely on it</strong>; use <code>wait()</code> to enforce order.</li>
+    <li><code>wait()</code>/<code>waitpid()</code> block until a child ends, reap it, and give you its status (decode with <code>WEXITSTATUS</code> etc.).</li>
+    <li><code>exec()</code> replaces the current program; the PID and open fds remain. A successful exec never returns.</li>
+    <li>Separating fork and exec lets the shell change the child's fds in between: that's how <code>&gt;</code> and <code>|</code> work.</li>
+    <li>Flush stdio (<code>fflush</code>) before <code>fork</code>/<code>exec</code>, or buffered output gets duplicated or lost.</li>
+    <li>Signals control processes: <code>SIGTERM</code> asks politely, <code>SIGKILL</code> can't be refused.</li>
+  </ul>
+</section>
+
+<!-- ================================================================ PRACTICE -->
+<section class="block" id="practice">
+  <h2>Practice</h2>
+
+  <div class="exercise">
+    <h4>Exercise 1 · Count the processes <span class="diff easy">easy</span></h4>
+    <p>How many times does this print <code>hi</code>? <code>fork(); fork(); fork(); printf("hi\n");</code></p>
+    <details><summary>Hint</summary><div class="details-body"><p>Each <code>fork()</code> doubles the number of processes executing the code after it. Check with the tree in concept 1.</p></div></details>
+    <details><summary>Solution</summary><div class="details-body"><p>2 × 2 × 2 = <strong>8</strong> processes, so 8 lines (in some order). In general, n sequential forks give 2<sup>n</sup> processes.</p></div></details>
+  </div>
+
+  <div class="exercise">
+    <h4>Exercise 2 · Shared or separate? <span class="diff easy">easy</span></h4>
+    <p>(Book homework 1–2.) After <code>fork()</code>: (a) if both processes change a variable <code>x</code>, does either see the other's change? (b) If the parent opened a file before forking, can both write to it, and what happens?</p>
+    <details><summary>Hint</summary><div class="details-body"><p>Run <code>copy.c</code>. For files, think about what the child's fd table points to.</p></div></details>
+    <details><summary>Solution</summary><div class="details-body"><p>(a) No — each has its own copy of memory (we saw 101 in the child and 99 in the parent). (b) Yes: both fd tables point to the same open-file object in the kernel, which holds one shared file offset. Writes from both land in the file, one after another; their order depends on scheduling, and with buffered stdio they may come out in chunks.</p></div></details>
+  </div>
+
+  <div class="exercise">
+    <h4>Exercise 3 · Child first, without wait() <span class="diff medium">medium</span></h4>
+    <p>(Book homework 3.) Make the child print "hello" and the parent print "goodbye", with "hello" always first — without calling <code>wait()</code> in the parent.</p>
+    <details><summary>Hint</summary><div class="details-body"><p>You need the parent to block until the child has printed. What else can block a process until another one acts? Think about this chapter's pipe example.</p></div></details>
+    <details><summary>Solution</summary><div class="details-body"><p>Use a pipe as a signal: create it before forking; the child prints "hello" (with <code>fflush</code>) and then closes its write end (or writes one byte); the parent closes its own write end and calls <code>read()</code> on the read end, which blocks until the child writes or every write end is closed — then prints "goodbye". <code>sleep()</code> in the parent is <em>not</em> a correct answer: it only makes the right order likely.</p></div></details>
+  </div>
+
+  <div class="exercise">
+    <h4>Exercise 4 · Why so many exec variants? <span class="diff medium">medium</span></h4>
+    <p>(Book homework 4.) Run <code>/bin/ls -l</code> from a child using <code>execl</code>, <code>execlp</code> and <code>execv</code>. When is each the most convenient?</p>
+    <details><summary>Hint</summary><div class="details-body"><p>Look at the table in concept 4: list vs vector, PATH search, environment.</p></div></details>
+    <details><summary>Solution</summary><div class="details-body"><p><code>execl("/bin/ls", "ls", "-l", (char *) NULL)</code> — fixed arguments known at compile time, full path. <code>execlp("ls", "ls", "-l", (char *) NULL)</code> — same but searches <code>$PATH</code>, like a shell. <code>execv("/bin/ls", argv)</code> with <code>char *argv[] = {"ls", "-l", NULL}</code> — when arguments are built at run time (as in a shell). The <code>e</code> variants pass a custom environment. They all end up in the single <code>execve</code> system call; the variants are conveniences.</p></div></details>
+  </div>
+
+  <div class="exercise">
+    <h4>Exercise 5 · Add pipes to minish <span class="diff hard">hard</span></h4>
+    <p>Extend the worked example's <code>minish.c</code> so that <code>cmd1 | cmd2</code> works. Make sure <code>ls | wc -l</code> finishes and the shell prints its next prompt.</p>
+    <details><summary>Hint</summary><div class="details-body"><p>Split the words at <code>|</code> into two argv arrays, then follow <code>pipe.c</code>. The shell is the parent here — what must it close before waiting?</p></div></details>
+    <details><summary>Solution</summary><div class="details-body"><p>Parse into <code>left[]</code> and <code>right[]</code>. Call <code>pipe(fds)</code>. Fork child 1: <code>dup2(fds[1], 1)</code>, close both pipe fds, <code>execvp(left[0], left)</code>. Fork child 2: <code>dup2(fds[0], 0)</code>, close both, <code>execvp(right[0], right)</code>. In the shell: close <em>both</em> pipe fds, then <code>waitpid</code> for both children. If the shell keeps <code>fds[1]</code> open, <code>wc</code> never sees end-of-file and the shell hangs waiting for it — the gotcha from concept 5.</p></div></details>
+  </div>
+</section>
+
+<!-- ================================================================ QUIZ -->
+<section class="block" id="quiz">
+  <h2>Self-check quiz</h2>
+  <div class="quiz">
+    <div class="q" data-answer="c"><fieldset>
+      <legend>In the child process, what does <code>fork()</code> return?</legend>
+      <div class="opts">
+        <label><input type="radio" name="q1" value="a"> The parent's PID</label>
+        <label><input type="radio" name="q1" value="b"> The child's own PID</label>
+        <label><input type="radio" name="q1" value="c"> 0</label>
+        <label><input type="radio" name="q1" value="d"> −1</label>
+      </div></fieldset>
+      <div class="fb">The child gets 0; the parent gets the child's PID; −1 means fork failed (and there is no child).</div>
+    </div>
+
+    <div class="q" data-answer="b"><fieldset>
+      <legend>What does this print? <code>int x = 5; if (fork() == 0) { x = 10; exit(0); } wait(NULL); printf("%d\n", x);</code></legend>
+      <div class="opts">
+        <label><input type="radio" name="q2" value="a"> 10</label>
+        <label><input type="radio" name="q2" value="b"> 5</label>
+        <label><input type="radio" name="q2" value="c"> 5 or 10 depending on scheduling</label>
+        <label><input type="radio" name="q2" value="d"> Nothing — the program deadlocks</label>
+      </div></fieldset>
+      <div class="fb">Only the parent prints, and it has its own copy of <code>x</code>, which is still 5. The child changed its copy.</div>
+    </div>
+
+    <div class="q" data-answer="a"><fieldset>
+      <legend>Why does adding <code>wait()</code> to the parent make <code>p2</code>'s output deterministic?</legend>
+      <div class="opts">
+        <label><input type="radio" name="q3" value="a"> Even if the parent runs first, it blocks in wait() until the child has exited</label>
+        <label><input type="radio" name="q3" value="b"> wait() forces the scheduler to run the child first</label>
+        <label><input type="radio" name="q3" value="c"> wait() disables interrupts</label>
+        <label><input type="radio" name="q3" value="d"> The child can't print until the parent calls wait()</label>
+      </div></fieldset>
+      <div class="fb">The scheduler can still pick either one; but the parent's print comes after wait() returns, which is after the child exits.</div>
+    </div>
+
+    <div class="q" data-answer="d"><fieldset>
+      <legend>A process calls <code>execvp("ls", args)</code> successfully. What happens to the line after it?</legend>
+      <div class="opts">
+        <label><input type="radio" name="q4" value="a"> It runs after ls finishes</label>
+        <label><input type="radio" name="q4" value="b"> It runs in the parent</label>
+        <label><input type="radio" name="q4" value="c"> It runs before ls starts</label>
+        <label><input type="radio" name="q4" value="d"> It never runs — the program was replaced</label>
+      </div></fieldset>
+      <div class="fb">A successful exec never returns. Code after it runs only if exec failed — which is why you put error handling there.</div>
+    </div>
+
+    <div class="q" data-answer="b"><fieldset>
+      <legend>Which of these does <code>exec()</code> keep from the old program?</legend>
+      <div class="opts">
+        <label><input type="radio" name="q5" value="a"> The heap contents</label>
+        <label><input type="radio" name="q5" value="b"> The PID and open file descriptors</label>
+        <label><input type="radio" name="q5" value="c"> Global variables</label>
+        <label><input type="radio" name="q5" value="d"> The stdio output buffer</label>
+      </div></fieldset>
+      <div class="fb">Code, data, heap and stack are replaced; kernel-side state like PID, parent and open fds (unless close-on-exec) carries over. That's what makes redirection work.</div>
+    </div>
+
+    <div class="q" data-answer="c"><fieldset>
+      <legend>How does <code>wc p4.c &gt; out.txt</code> send wc's output to the file?</legend>
+      <div class="opts">
+        <label><input type="radio" name="q6" value="a"> The shell passes the filename to wc as an argument</label>
+        <label><input type="radio" name="q6" value="b"> wc detects the &gt; and opens the file itself</label>
+        <label><input type="radio" name="q6" value="c"> In the child, before exec, the shell makes fd 1 refer to out.txt</label>
+        <label><input type="radio" name="q6" value="d"> The kernel copies the terminal output into the file afterwards</label>
+      </div></fieldset>
+      <div class="fb">Between fork and exec the shell closes fd 1 and opens the file (which gets fd 1), or uses dup2. wc just writes to fd 1.</div>
+    </div>
+
+    <div class="q" data-answer="a"><fieldset>
+      <legend>A program prints <code>"start"</code> with no newline, then forks; its output goes to a file. What might the file contain?</legend>
+      <div class="opts">
+        <label><input type="radio" name="q7" value="a"> "start" twice — the unflushed buffer was copied to the child</label>
+        <label><input type="radio" name="q7" value="b"> "start" once — fork never copies buffers</label>
+        <label><input type="radio" name="q7" value="c"> Nothing — fork discards buffers</label>
+        <label><input type="radio" name="q7" value="d"> An error from the kernel</label>
+      </div></fieldset>
+      <div class="fb">The stdio buffer is ordinary process memory, so fork duplicates it; both processes flush their copy later. Call fflush(stdout) before fork.</div>
+    </div>
+
+    <div class="q" data-answer="d"><fieldset>
+      <legend>Which signal can a process <em>not</em> catch, block or ignore?</legend>
+      <div class="opts">
+        <label><input type="radio" name="q8" value="a"> SIGTERM</label>
+        <label><input type="radio" name="q8" value="b"> SIGINT</label>
+        <label><input type="radio" name="q8" value="c"> SIGCHLD</label>
+        <label><input type="radio" name="q8" value="d"> SIGKILL</label>
+      </div></fieldset>
+      <div class="fb">SIGKILL (and SIGSTOP) always take effect. That's why it works when nothing else does — and why it gives no chance to clean up.</div>
+    </div>
+
+    <p class="score" aria-live="polite"></p>
+    <button class="btn" type="button" data-quiz-reset>↺ Reset quiz</button>
+  </div>
+</section>
+
+<!-- ================================================================ CHEATSHEET -->
+<section class="block" id="cheatsheet">
+  <h2>Cheat sheet</h2>
+  <div class="cheatsheet">
+    <h3>Ch. 03 · Process API <button class="btn no-print" type="button" data-print-cheatsheet>Print this sheet</button></h3>
+    <div class="cheat-grid">
+      <div><h4>fork</h4><ul>
+        <li><code>pid_t rc = fork();</code></li>
+        <li>rc &gt; 0 parent (child's PID) · 0 child · −1 error</li>
+        <li>child: copy of memory, same fds</li>
+        <li>n sequential forks → 2<sup>n</sup> processes</li></ul></div>
+      <div><h4>wait</h4><ul>
+        <li><code>wait(&amp;s)</code> any child · <code>waitpid(pid, &amp;s, 0)</code></li>
+        <li><code>WNOHANG</code> = don't block</li>
+        <li><code>WIFEXITED/WEXITSTATUS</code></li>
+        <li><code>WIFSIGNALED/WTERMSIG</code></li>
+        <li>no children → −1 (ECHILD)</li></ul></div>
+      <div><h4>exec</h4><ul>
+        <li>replaces program; keeps PID, fds</li>
+        <li>never returns on success</li>
+        <li>l = list · v = vector · p = PATH · e = env</li>
+        <li><code>execvp(argv[0], argv)</code>, argv ends with NULL</li></ul></div>
+      <div><h4>Shell plumbing</h4><ul>
+        <li>loop: read → fork → (child: fds, exec) → wait</li>
+        <li><code>&gt; f</code>: close(1); open(f) → fd 1</li>
+        <li><code>dup2(fd, 1)</code> · <code>pipe(fds)</code>: [0] read, [1] write</li>
+        <li>close unused pipe ends!</li>
+        <li><code>cd</code>, <code>exit</code> must be built-ins</li></ul></div>
+      <div><h4>Signals</h4><ul>
+        <li><code>kill(pid, SIGTERM)</code> · <code>sigaction()</code></li>
+        <li>INT 2 (Ctrl-C) · TERM 15 · KILL 9</li>
+        <li>KILL, STOP can't be caught</li>
+        <li>SIGCHLD when a child exits</li></ul></div>
+      <div><h4>Pitfalls</h4><ul>
+        <li><code>fflush(stdout)</code> before fork/exec</li>
+        <li>handle exec failure: perror + exit</li>
+        <li>check fork() &lt; 0</li>
+        <li>don't depend on run order</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ GLOSSARY -->
+<section class="block" id="glossary">
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <div class="g-item"><dt id="g-child">child process</dt><dd>A process created by another process (its parent) with <code>fork()</code>.</dd></div>
+    <div class="g-item"><dt id="g-copy-on-write">copy-on-write</dt><dd>Sharing pages between parent and child until one writes, then copying just that page.</dd></div>
+    <div class="g-item"><dt id="g-dup2">dup2</dt><dd>System call making one file descriptor refer to the same open file as another.</dd></div>
+    <div class="g-item"><dt id="g-exec">exec</dt><dd>Family of calls that replace the current program with a new one in the same process.</dd></div>
+    <div class="g-item"><dt id="g-file-descriptor">file descriptor</dt><dd>Small integer naming an open file in a process; 0, 1, 2 are stdin, stdout, stderr.</dd></div>
+    <div class="g-item"><dt id="g-fork">fork</dt><dd>System call creating a child process that is a copy of the caller.</dd></div>
+    <div class="g-item"><dt id="g-nondeterministic">nondeterministic</dt><dd>Able to produce different results or orderings on different runs with the same input.</dd></div>
+    <div class="g-item"><dt id="g-parent">parent process</dt><dd>The process that created a given child; it receives the child's PID from <code>fork()</code> and can wait for it.</dd></div>
+    <div class="g-item"><dt id="g-pipe">pipe</dt><dd>In-kernel one-way byte channel with a read end and a write end, used to connect processes.</dd></div>
+    <div class="g-item"><dt id="g-redirection">redirection</dt><dd>Making a program's standard input or output refer to a file instead of the terminal.</dd></div>
+    <div class="g-item"><dt id="g-shell">shell</dt><dd>A user program that reads commands and runs them using fork, exec and wait.</dd></div>
+    <div class="g-item"><dt id="g-signal">signal</dt><dd>Asynchronous notification sent to a process by the kernel or by <code>kill()</code>.</dd></div>
+    <div class="g-item"><dt id="g-wait">wait</dt><dd>System call that blocks until a child terminates, then reaps it and returns its status.</dd></div>
+  </dl>
+</section>
+
+<!-- ================================================================ CONNECTIONS -->
+<section class="block" id="connections">
+  <h2>Connections</h2>
+  <div class="conn-grid">
+    <div class="box"><h4>Builds on</h4><ul>
+      <li><a href="chapter-02.html">Ch. 02 — The Process</a>: process API, states, zombies</li>
+      <li><a href="chapter-01.html">Ch. 01 — Introduction</a>: file descriptors, system calls, buffering</li></ul></div>
+    <div class="box"><h4>Used later in</h4><ul>
+      <li><span class="soon">Ch. 04 — Limited Direct Execution</span> (how a syscall like fork enters the kernel)</li>
+      <li><span class="soon">Ch. 19 — VAX/VMS</span> (copy-on-write)</li>
+      <li><span class="soon">Ch. 21 — Thread API</span> (threads vs processes)</li>
+      <li><span class="soon">Ch. 31 — Files and Directories</span> (fds, dup, shared offsets)</li></ul></div>
+    <div class="box"><h4>Further reading (from the chapter)</h4><ul>
+      <li>Stevens &amp; Rago, <em>Advanced Programming in the UNIX Environment</em> — process control chapters</li>
+      <li>Lampson, "Hints for Computer Systems Design" (1983)</li>
+      <li>Your system's man pages: <code>fork(2)</code>, <code>wait(2)</code>, <code>exec(3)</code>, <code>signal(7)</code></li></ul></div>
+  </div>
+
+  <nav class="pager" aria-label="Chapter navigation">
+    <a href="chapter-02.html" class="prev"><small>← previous</small>Ch. 02 — The Abstraction: The Process</a>
+    <span class="disabled next" aria-disabled="true"><small>next · coming soon</small>Ch. 04 — Limited Direct Execution →</span>
+  </nav>
+  <div class="pager-links"><a href="index.html">OSTEP index</a><a href="../index.html">Library home</a><a href="#main">Back to top ↑</a></div>
+</section>
+
+</main>
+</div>
+
+<footer class="site">Study guide for <em>Operating Systems: Three Easy Pieces</em> (Arpaci-Dusseau). Explanations written for this guide; read the original for the full text.</footer>
+
+<script>/*@include shared/base.js*/</script>
+<script>
+/* ===================== Chapter 03 interactives ===================== */
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+
+  /* ---------- Fork tree ---------- */
+  (function () {
+    function draw() {
+      var n = +$("ft-n").value;
+      $("ft-n-o").textContent = n;
+      var lines = []; for (var i = 0; i < n; i++) lines.push("fork();");
+      lines.push('printf("hi\\n");');
+      $("ft-code").textContent = lines.join("\n");
+      // each process is a "lane"; at fork k every existing lane spawns a new lane
+      var lanes = [{ parent: -1, born: -1 }];
+      for (var k = 0; k < n; k++) { var m = lanes.length; for (var j = 0; j < m; j++) lanes.push({ parent: j, born: k }); }
+      var W = 600, H = 40 + n * 46 + 40, laneW = Math.min(70, (W - 40) / lanes.length);
+      function X(j) { return 20 + laneW * (j + 0.5); }
+      function Y(k) { return 30 + (k + 1) * 46; }
+      var s = "";
+      for (var k2 = 0; k2 < n; k2++) s += '<text x="0" y="' + (Y(k2) + 4) + '" class="s-text-soft">fork ' + (k2 + 1) + "</text>";
+      lanes.forEach(function (l, j) {
+        var y0 = l.born < 0 ? 22 : Y(l.born);
+        s += '<line x1="' + X(j) + '" y1="' + y0 + '" x2="' + X(j) + '" y2="' + (H - 26) + '" class="s-line"/>';
+        if (l.born >= 0) s += '<path d="M' + X(l.parent) + " " + Y(l.born) + " L" + X(j) + " " + Y(l.born) + '" class="s-arrow"/>';
+      });
+      lanes.forEach(function (l, j) {
+        var y0 = l.born < 0 ? 22 : Y(l.born);
+        s += '<circle cx="' + X(j) + '" cy="' + y0 + '" r="7" class="' + (l.born < 0 ? "s-user" : "s-violet") + '"/>';
+        s += '<rect x="' + (X(j) - 14) + '" y="' + (H - 26) + '" width="28" height="18" rx="4" class="s-box"/><text x="' + X(j) + '" y="' + (H - 13) + '" text-anchor="middle" class="s-text-soft">hi</text>';
+      });
+      var svg = $("ft-svg");
+      svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+      svg.innerHTML = s;
+      $("ft-status").textContent = n + " fork" + (n > 1 ? "s" : "") + " → " + lanes.length + " processes → \"hi\" printed " + lanes.length + " times (2^" + n + ").";
+    }
+    $("ft-n").addEventListener("input", draw);
+    draw();
+  })();
+
+  /* ---------- Shell stepper ---------- */
+  (function () {
+    var TTY = "terminal";
+    function P(name, pid, prog, state, fds) { return { name: name, pid: pid, prog: prog, state: state, fds: fds }; }
+    function std() { return { 0: TTY, 1: TTY, 2: TTY }; }
+    function clone(o) { return JSON.parse(JSON.stringify(o)); }
+    var scripts = {
+      plain: function () {
+        var S = [], st = { procs: [P("shell", 100, "bash", "running", std())], term: "$ wc p3.c\n", pipe: "" };
+        function add(call, note, mut, changed) { if (mut) mut(st); var c = clone(st); c.call = call; c.note = note; c.changed = changed || []; S.push(c); }
+        add("read(0, …) → \"wc p3.c\"", "The shell reads your command line from its standard input.");
+        add("fork() → 101 in parent, 0 in child", "fork(): the child is a copy of the shell, with a copy of its fd table.", function (s) { s.procs.push(P("child", 101, "bash (copy)", "ready", std())); }, [1]);
+        add("parent: wait(NULL)", "The parent shell waits for the child, so it's blocked.", function (s) { s.procs[0].state = "blocked in wait()"; }, [0]);
+        add("child: execvp(\"wc\", {\"wc\",\"p3.c\",NULL})", "exec: the child keeps PID 101 and its fds, but now runs wc.", function (s) { s.procs[1].prog = "wc p3.c"; s.procs[1].state = "running"; }, [1]);
+        add("wc: write(1, \" 25  98 800 p3.c\\n\")", "wc writes to fd 1, which is still the terminal.", function (s) { s.term += " 25  98 800 p3.c\n"; }, [1]);
+        add("wc: exit(0)", "wc finishes and becomes a zombie until its parent collects it.", function (s) { s.procs[1].state = "zombie"; }, [1]);
+        add("parent: wait() returns 101", "The shell's wait() returns the child's PID and reaps it.", function (s) { s.procs[1].state = "gone"; s.procs[0].state = "running"; }, [0, 1]);
+        add("write(1, \"$ \")", "The shell prints the next prompt. Done.", function (s) { s.term += "$ "; }, [0]);
+        return S;
+      },
+      redir: function () {
+        var S = [], st = { procs: [P("shell", 100, "bash", "running", std())], term: "$ wc p4.c > out.txt\n", pipe: "" };
+        function add(call, note, mut, changed) { if (mut) mut(st); var c = clone(st); c.call = call; c.note = note; c.changed = changed || []; S.push(c); }
+        add("read(0, …) → \"wc p4.c > out.txt\"", "The shell reads and parses the command; it notices the > out.txt.");
+        add("fork() → 101 in parent, 0 in child", "The child starts as a copy of the shell — still running shell code.", function (s) { s.procs.push(P("child", 101, "bash (copy)", "running", std())); }, [1]);
+        add("parent: wait(NULL)", "The parent blocks waiting for the child.", function (s) { s.procs[0].state = "blocked in wait()"; }, [0]);
+        add("child: close(1)", "Here's the moment fork/exec separation buys: the child closes its standard output…", function (s) { s.procs[1].fds[1] = "(closed)"; }, [1]);
+        add("child: open(\"out.txt\", O_WRONLY|O_CREAT|O_TRUNC) → 1", "…and opens the file. The lowest free descriptor is 1, so the file becomes standard output.", function (s) { s.procs[1].fds[1] = "out.txt"; }, [1]);
+        add("child: execvp(\"wc\", {\"wc\",\"p4.c\",NULL})", "exec keeps the fd table. wc has no idea fd 1 is a file.", function (s) { s.procs[1].prog = "wc p4.c"; }, [1]);
+        add("wc: write(1, \" 24 103 738 p4.c\\n\")", "wc writes to fd 1 — into out.txt. Nothing appears on the terminal.", function (s) { s.out = " 24 103 738 p4.c"; }, [1]);
+        add("wc: exit(0)", "wc exits; it's a zombie until reaped.", function (s) { s.procs[1].state = "zombie"; }, [1]);
+        add("parent: wait() returns 101", "The shell reaps the child. The shell's own fd 1 was never touched.", function (s) { s.procs[1].state = "gone"; s.procs[0].state = "running"; }, [0, 1]);
+        add("write(1, \"$ \")", "Next prompt. out.txt now contains wc's output.", function (s) { s.term += "$ cat out.txt\n 24 103 738 p4.c\n$ "; }, [0]);
+        return S;
+      },
+      pipe: function () {
+        var S = [], st = { procs: [P("shell", 100, "bash", "running", std())], term: "$ grep -o fork p1.c | wc -l\n", pipe: "" };
+        function add(call, note, mut, changed) { if (mut) mut(st); var c = clone(st); c.call = call; c.note = note; c.changed = changed || []; S.push(c); }
+        add("read(0, …)", "The shell reads the command and sees a | : two programs, connected.");
+        add("pipe(fds) → fds = {3, 4}", "The kernel creates a pipe: fd 3 is the read end, fd 4 the write end.", function (s) { s.procs[0].fds[3] = "pipe (read)"; s.procs[0].fds[4] = "pipe (write)"; s.pipe = "kernel pipe: empty"; }, [0]);
+        add("fork() → 101", "Child 1 (for grep) inherits fds 0–4, including both pipe ends.", function (s) { s.procs.push(P("child 1", 101, "bash (copy)", "running", clone(s.procs[0].fds))); }, [1]);
+        add("child 1: dup2(4, 1); close(3); close(4)", "Child 1's stdout now points at the pipe's write end; extra pipe fds closed.", function (s) { var f = s.procs[1].fds; f[1] = "pipe (write)"; delete f[3]; delete f[4]; }, [1]);
+        add("child 1: execlp(\"grep\", …)", "Child 1 becomes grep.", function (s) { s.procs[1].prog = "grep -o fork p1.c"; }, [1]);
+        add("fork() → 102", "Child 2 (for wc) also inherits the shell's fds, pipe ends included.", function (s) { s.procs.push(P("child 2", 102, "bash (copy)", "running", clone(s.procs[0].fds))); }, [2]);
+        add("child 2: dup2(3, 0); close(3); close(4)", "Child 2's stdin now points at the pipe's read end.", function (s) { var f = s.procs[2].fds; f[0] = "pipe (read)"; delete f[3]; delete f[4]; }, [2]);
+        add("child 2: execlp(\"wc\", \"wc\", \"-l\")", "Child 2 becomes wc -l, reading from stdin.", function (s) { s.procs[2].prog = "wc -l"; }, [2]);
+        add("shell: close(3); close(4)", "The shell closes its copies of both pipe ends — otherwise wc would never see end-of-file.", function (s) { delete s.procs[0].fds[3]; delete s.procs[0].fds[4]; }, [0]);
+        add("shell: wait(NULL)", "The shell waits for both children.", function (s) { s.procs[0].state = "blocked in wait()"; }, [0]);
+        add("grep: write(1, \"fork\\nfork\\nfork\\n\")", "grep's output goes into the pipe, not the screen.", function (s) { s.pipe = "kernel pipe: \"fork\\nfork\\nfork\\n\""; }, [1]);
+        add("grep: exit(0)", "grep exits. Its write end closes — and it was the last one open.", function (s) { s.procs[1].state = "zombie"; s.pipe = "kernel pipe: \"fork\\nfork\\nfork\\n\" · no writers left"; }, [1]);
+        add("wc: read(0) → 15 bytes, then read(0) → 0 (EOF)", "wc reads the data, then gets end-of-file because no writers remain.", function (s) { s.pipe = "kernel pipe: empty · no writers"; }, [2]);
+        add("wc: write(1, \"3\\n\"); exit(0)", "wc prints its count to its stdout — the terminal.", function (s) { s.term += "3\n"; s.procs[2].state = "zombie"; }, [2]);
+        add("shell: wait() ×2 → 101, 102", "Both children are reaped; the pipe is freed.", function (s) { s.procs[1].state = "gone"; s.procs[2].state = "gone"; s.procs[0].state = "running"; s.pipe = ""; }, [0, 1, 2]);
+        add("write(1, \"$ \")", "Next prompt.", function (s) { s.term += "$ "; }, [0]);
+        return S;
+      }
+    };
+    var steps = [], i = 0;
+    function render() {
+      var s = steps[i];
+      $("sh-status").textContent = "Step " + (i + 1) + " / " + steps.length + " · " + s.note;
+      $("sh-procs").innerHTML = s.procs.map(function (p, k) {
+        var rows = Object.keys(p.fds).map(function (fd) {
+          var prev = i > 0 && steps[i - 1].procs[k] ? steps[i - 1].procs[k].fds[fd] : undefined;
+          return "<tr><td>fd " + fd + '</td><td class="' + (prev !== p.fds[fd] && i > 0 ? "new" : "") + '">' + esc(p.fds[fd]) + "</td></tr>";
+        }).join("");
+        var cls = "sh-proc" + (s.changed.indexOf(k) >= 0 ? " changed" : "") + (p.state === "gone" ? " gone" : "");
+        return '<div class="' + cls + '"><h5>' + esc(p.name) + " · PID " + p.pid + '</h5><div class="sub">' + esc(p.prog) + " · " + esc(p.state) + "</div><table>" + rows + "</table></div>";
+      }).join("");
+      $("sh-pipe").textContent = s.pipe || (s.out ? "out.txt: \"" + s.out + "\"" : "");
+      $("sh-term").textContent = s.term;
+      $("sh-log").innerHTML = steps.slice(0, i + 1).map(function (x, k) { return '<li class="' + (k === i ? "cur" : "") + '">' + esc(x.call) + "</li>"; }).join("");
+      $("sh-log").scrollTop = $("sh-log").scrollHeight;
+      $("sh-prev").disabled = i === 0; $("sh-next").disabled = i === steps.length - 1;
+    }
+    function load() { steps = scripts[$("sh-cmd").value](); i = 0; render(); }
+    function next() { if (i >= steps.length - 1) return false; i++; render(); return i < steps.length - 1; }
+    var player = LV.player({ step: next, interval: function () { return 1500; }, onState: function (p) { $("sh-play").textContent = p ? "❚❚ Pause" : "▶ Play"; } });
+    $("sh-play").addEventListener("click", function () { if (i >= steps.length - 1) { i = 0; render(); } player.toggle(); });
+    $("sh-next").addEventListener("click", function () { player.pause(); next(); });
+    $("sh-prev").addEventListener("click", function () { player.pause(); if (i > 0) { i--; render(); } });
+    $("sh-reset").addEventListener("click", function () { player.pause(); i = 0; render(); });
+    $("sh-cmd").addEventListener("change", function () { player.pause(); load(); });
+    load();
+  })();
+})();
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-clike.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-c.min.js"></script>
+</body>
+</html>

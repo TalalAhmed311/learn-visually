@@ -6,7 +6,7 @@ Processing order: the OS book first (as requested), then the rest. Theme chosen:
 
 | # | File | Title | Author | Topic | Format | Chapters | Status |
 |---|------|-------|--------|-------|--------|----------|--------|
-| 1 | `Operating Systems - Three Easy Pieces.pdf` | Operating Systems: Three Easy Pieces (v0.90) | Remzi H. Arpaci-Dusseau, Andrea C. Arpaci-Dusseau | Operating systems | Text PDF (675 pp., bookmarked) | 42 study chapters (from 50 book chapters + 2 appendices) | **in progress** — 2/42 done |
+| 1 | `Operating Systems - Three Easy Pieces.pdf` | Operating Systems: Three Easy Pieces (v0.90) | Remzi H. Arpaci-Dusseau, Andrea C. Arpaci-Dusseau | Operating systems | Text PDF (675 pp., bookmarked) | 42 study chapters (from 50 book chapters + 2 appendices) | **in progress** — 3/42 done |
 | 2 | `Inside Machine.pdf` | Inside the Machine: An Illustrated Introduction to Microprocessors and Computer Architecture (2007) | Jon Stokes | Computer architecture | Text PDF (320 pp., bookmarked) | 12 | pending |
 | 3 | `Inference Engineering.pdf` | Inference Engineering | Philip Kiely | ML inference / LLM serving | Text PDF (275 pp., bookmarked) | 8 (Ch. 0–7) + glossary appendix | pending |
 
@@ -18,7 +18,7 @@ No duplicates found (one file per title). All three PDFs have a text layer, so n
 |-----------|----------|-------|--------|
 | 01 | 1–2 | Introduction to Operating Systems | done (Calm theme) |
 | 02 | 3–4 | The Abstraction: The Process | done |
-| 03 | 5 | Interlude: Process API | pending |
+| 03 | 5 | Interlude: Process API | done |
 | 04 | 6 | Mechanism: Limited Direct Execution | pending |
 | 05 | 7 | Scheduling: Introduction | pending |
 | 06 | 8 | Scheduling: The Multi-Level Feedback Queue | pending |
