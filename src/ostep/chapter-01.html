@@ -7,61 +7,69 @@
 <meta name="description" content="Study page for Operating Systems: Three Easy Pieces, chapters 1–2: what an operating system is, and the three easy pieces — virtualization, concurrency, persistence.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
 <style>/*@include shared/base.css*/
 /*@include ostep/theme.css*/
 /* ---- chapter-specific ---- */
-.cpu-sim { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 1rem; }
+.cpu-sim { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 1.1rem; }
 @media (max-width: 640px) { .cpu-sim { grid-template-columns: 1fr; } }
-.memtable { width: 100%; min-width: 0; font-family: var(--font-mono); font-size: .78rem; border-collapse: collapse; }
-.memtable td, .memtable th { padding: .28rem .45rem; border-bottom: 1px solid var(--border); }
-.memtable th { font-size: .66rem; }
-.memtable tr.pc td { background: var(--accent-soft); }
-.memtable tr.pc td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
-.memtable tr.touched td { background: var(--hw-soft); }
-.phase { display: flex; gap: .35rem; margin: .4rem 0 .6rem; }
-.phase span { flex: 1; text-align: center; font-family: var(--font-mono); font-size: .72rem; padding: .3rem; border-radius: 6px; border: 1px solid var(--border-strong); color: var(--muted); }
-.phase span.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-.regs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; }
-.regs div { border: 1px solid var(--hw); background: var(--hw-soft); border-radius: 8px; padding: .3rem .5rem; font-family: var(--font-mono); font-size: .8rem; }
-.regs div b { color: var(--hw); font-weight: 700; margin-right: .3rem; }
-.regs div.flash { outline: 2px solid var(--accent); }
+.memtable { width: 100%; min-width: 0; font-family: var(--font-mono); font-size: .78rem; border-collapse: separate; border-spacing: 0 4px; }
+.memtable td, .memtable th { padding: .38rem .55rem; border: 0; }
+.memtable th { font-size: .64rem; background: none; color: var(--muted); }
+.memtable td { background: var(--surface-2); transition: background .3s, box-shadow .3s; }
+.memtable td:first-child { border-radius: 10px 0 0 10px; color: var(--muted); }
+.memtable td:last-child { border-radius: 0 10px 10px 0; color: var(--text-soft); }
+.memtable tr.pc td { background: color-mix(in srgb, var(--c-green) 18%, transparent); color: var(--text-strong); }
+.memtable tr.pc td:first-child { box-shadow: inset 4px 0 0 var(--c-green); }
+.memtable tr.touched td { background: color-mix(in srgb, var(--c-cyan) 20%, transparent); }
+.phase { display: flex; gap: .4rem; margin: .1rem 0 .7rem; }
+.phase span { flex: 1; text-align: center; font-family: var(--font-mono); font-size: .7rem; font-weight: 700; letter-spacing: .08em; padding: .45rem .3rem; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--muted); transition: all .3s; }
+.phase span.on { background: var(--grad-1); color: #fff; border-color: transparent; box-shadow: 0 8px 22px -8px var(--c-pink); transform: translateY(-1px); }
+.regs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+.regs div { border: 1px solid color-mix(in srgb, var(--c-cyan) 45%, transparent); background: color-mix(in srgb, var(--c-cyan) 10%, transparent); border-radius: 14px; padding: .5rem .7rem; font-family: var(--font-mono); font-size: .95rem; color: var(--text-strong); transition: box-shadow .3s, transform .3s; }
+.regs div b { display: block; color: var(--c-cyan); font-size: .64rem; letter-spacing: .1em; }
+.regs div.flash { box-shadow: 0 0 0 3px var(--c-pink), 0 0 24px var(--c-pink); transform: scale(1.04); }
 .mm-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
-.mm-proc { border: 1px solid var(--accent); border-radius: 10px; padding: .6rem .7rem; background: var(--accent-soft); font-family: var(--font-mono); font-size: .8rem; }
-.mm-proc h5 { margin: 0 0 .4rem; font-size: .8rem; color: var(--accent); }
-.mm-phys { margin-top: .8rem; border: 1px solid var(--hw); border-radius: 10px; padding: .6rem .7rem; background: var(--hw-soft); font-family: var(--font-mono); font-size: .78rem; }
-.mm-phys .cells { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 3px; margin-top: .4rem; }
-.mm-phys .cells div { border: 1px solid var(--border-strong); border-radius: 4px; padding: .2rem 0; text-align: center; background: var(--surface); min-height: 2.4em; font-size: .68rem; line-height: 1.1; overflow: hidden; }
-.mm-phys .cells div.p1 { border-color: var(--accent); color: var(--accent); }
-.mm-phys .cells div.p2 { border-color: var(--violet); color: var(--violet); }
-.mm-phys .cells div.os { border-color: var(--kernel); color: var(--kernel); }
-.mm-phys .cells div.flash { outline: 2px solid var(--text-strong); }
+.mm-proc { border: 1px solid var(--c-green); border-radius: 18px; padding: .8rem .9rem; background: color-mix(in srgb, var(--c-green) 10%, transparent); font-family: var(--font-mono); font-size: .82rem; }
+.mm-proc strong { font-size: 1.3rem; color: var(--text-strong); }
+.mm-proc h5 { margin: 0 0 .4rem; font-size: .8rem; color: var(--c-green); }
+.mm-proc.p2 { border-color: var(--c-violet); background: color-mix(in srgb, var(--c-violet) 10%, transparent); }
+.mm-proc.p2 h5 { color: var(--c-violet); }
+.mm-phys { margin-top: .9rem; border: 1px solid color-mix(in srgb, var(--c-cyan) 45%, transparent); border-radius: 18px; padding: .8rem .9rem; background: color-mix(in srgb, var(--c-cyan) 7%, transparent); font-family: var(--font-mono); font-size: .76rem; color: var(--text-soft); }
+.mm-phys .cells { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 5px; margin-top: .5rem; }
+.mm-phys .cells div { border: 1px solid var(--border-strong); border-radius: 10px; padding: .35rem 0; text-align: center; background: var(--surface-2); min-height: 2.8em; font-size: .68rem; line-height: 1.2; overflow: hidden; transition: transform .3s, box-shadow .3s; }
+.mm-phys .cells div.p1 { border-color: var(--c-green); color: var(--c-green); background: color-mix(in srgb, var(--c-green) 14%, transparent); }
+.mm-phys .cells div.p2 { border-color: var(--c-violet); color: var(--c-violet); background: color-mix(in srgb, var(--c-violet) 14%, transparent); }
+.mm-phys .cells div.os { border-color: var(--c-amber); color: var(--c-amber); background: color-mix(in srgb, var(--c-amber) 12%, transparent); }
+.mm-phys .cells div.flash { transform: scale(1.12); box-shadow: 0 0 22px var(--c-pink); }
 @media (max-width: 480px) { .mm-phys .cells { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-.gantt-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); padding: .4rem; }
+.gantt-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-2); padding: .5rem; }
 .gantt-wrap svg { display: block; min-width: 520px; }
-.race-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1fr); gap: .6rem; align-items: start; }
+.race-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1fr); gap: .7rem; align-items: start; }
 @media (max-width: 600px) { .race-grid { grid-template-columns: 1fr 1fr; } .race-mem { grid-column: 1 / -1; order: -1; } }
-.thread-card { border: 1px solid var(--border-strong); border-radius: 10px; padding: .55rem .6rem; background: var(--bg); font-family: var(--font-mono); font-size: .76rem; min-width: 0; }
-.thread-card h5 { margin: 0 0 .35rem; font-size: .8rem; }
-.thread-card ol { margin: 0; padding: 0; list-style: none; }
-.thread-card li { padding: .18rem .35rem; border-radius: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.thread-card li.next { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.thread-card { border: 1px solid var(--border-strong); border-radius: 18px; padding: .75rem .8rem; background: var(--surface-2); font-family: var(--font-mono); font-size: .76rem; min-width: 0; transition: border-color .3s, box-shadow .3s; }
+.thread-card h5 { margin: 0 0 .45rem; font-size: .82rem; }
+.thread-card ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; }
+.thread-card li { padding: .28rem .45rem; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background .3s; }
+.thread-card li.next { background: var(--grad-soft); box-shadow: inset 3px 0 0 var(--c-pink); color: var(--text-strong); }
 .thread-card li.done { color: var(--muted); text-decoration: line-through; }
-.thread-card .reg { margin-top: .4rem; color: var(--hw); }
-.thread-card.active { border-color: var(--accent); }
-.race-mem { border: 1px solid var(--hw); border-radius: 10px; padding: .6rem; text-align: center; background: var(--hw-soft); font-family: var(--font-mono); }
-.race-mem .big { font-size: 2rem; color: var(--text-strong); line-height: 1.1; }
-.race-log { font-family: var(--font-mono); font-size: .76rem; margin: .6rem 0 0; padding-left: 1.4rem; max-height: 12em; overflow: auto; }
-.race-log li.t1 { color: var(--accent); } .race-log li.t2 { color: var(--violet); }
-.results-row { display: flex; flex-wrap: wrap; gap: .35rem; font-family: var(--font-mono); font-size: .75rem; margin-top: .5rem; }
-.results-row span { border: 1px solid var(--border-strong); border-radius: 6px; padding: .15rem .4rem; }
-.results-row span.exact { border-color: var(--accent); color: var(--accent); }
-.results-row span.lost { border-color: var(--danger); color: var(--danger); }
-.chart-box { position: relative; height: 280px; }
+.thread-card .reg { margin-top: .5rem; color: var(--c-cyan); font-weight: 700; }
+.thread-card.active { border-color: var(--c-pink); box-shadow: 0 0 0 4px var(--ring), 0 14px 30px -18px var(--c-pink); }
+.race-mem { border-radius: 20px; padding: .8rem; text-align: center; background: linear-gradient(var(--surface-solid), var(--surface-solid)) padding-box, var(--grad-cool) border-box; border: 2px solid transparent; font-family: var(--font-mono); }
+.race-mem .big { font-family: var(--font-head); font-weight: 800; font-size: 2.6rem; color: var(--text-strong); line-height: 1.1; transition: color .3s; }
+.race-log { font-family: var(--font-mono); font-size: .76rem; margin: .7rem 0 0; padding-left: 1.4rem; max-height: 12em; overflow: auto; }
+.race-log li { animation: drop .3s ease; }
+.race-log li.t1 { color: var(--c-green); } .race-log li.t2 { color: var(--c-violet); }
+.results-row { display: flex; flex-wrap: wrap; gap: .4rem; font-family: var(--font-mono); font-size: .75rem; margin-top: .6rem; }
+.results-row span { border: 1px solid var(--border-strong); border-radius: 999px; padding: .2rem .6rem; animation: pop .35s; }
+.results-row span.exact { border-color: var(--c-green); color: var(--c-green); background: color-mix(in srgb, var(--c-green) 10%, transparent); }
+.results-row span.lost { border-color: var(--c-rose); color: var(--c-rose); background: color-mix(in srgb, var(--c-rose) 10%, transparent); }
+.chart-box { position: relative; height: 290px; }
 .mp-fallback { width: 100%; height: 100%; }
 </style>
 </head>
 <body>
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
 <a class="skip-link" href="#main">Skip to content</a>
 
 <header class="topbar">
@@ -113,43 +121,90 @@
 <!-- ================================================================ HERO -->
 <header class="hero">
   <div>
-    <div class="kicker">CHAPTER 01 · OSTEP BOOK CH. 1–2 · INTRO</div>
-    <h1>Introduction to Operating Systems</h1>
-    <p class="hook">One CPU, one memory, one disk — yet dozens of programs each behave as if they own the whole machine. This chapter introduces the software that makes that illusion work, and the three ideas the rest of the book is built on.</p>
+    <div class="kicker">CHAPTER 01 · OSTEP CH. 1–2 · INTRO</div>
+    <h1>Introduction to Operating Systems<span class="caret" aria-hidden="true"></span></h1>
+    <p class="hook">One CPU, one memory, one disk — yet dozens of programs each behave as if they own the whole machine. Meet the software that pulls off the trick, and the three ideas the rest of the book is built on.</p>
     <div class="meta">
-      <span class="chip">⏱ ~30 min</span>
       <span class="chip level">Beginner</span>
+      <span class="chip">⏱ ~30 min</span>
       <span class="chip">C · Linux · gcc 13</span>
     </div>
     <p class="prereqs"><strong>Prerequisites:</strong> none in this book (first chapter). You should be able to read basic C (pointers, <code>malloc</code>) and run commands in a Unix shell.</p>
   </div>
   <div class="hero-art">
-    <svg viewBox="0 0 400 270" role="img" aria-labelledby="hero-t hero-d">
-      <title id="hero-t">Programs on top of the OS on top of hardware</title>
-      <desc id="hero-d">A terminal shows four programs A, B, C and D running at once. Beneath them an amber operating-system layer with the words virtualize, concurrency, persist. Beneath that, hardware boxes: CPU, RAM and disk.</desc>
-      <g font-family="JetBrains Mono, monospace">
-        <text x="18" y="28" fill="#4ade80" font-size="12">$ ./cpu A &amp; ./cpu B &amp; ./cpu C &amp; ./cpu D &amp;</text>
-        <text x="18" y="46" fill="#7d9486" font-size="11">A B D C A B D C A C B D …</text>
-        <g font-size="14" font-weight="700" text-anchor="middle">
-          <rect x="30" y="66" width="70" height="40" rx="7" fill="rgba(74,222,128,.12)" stroke="#4ade80"/><text x="65" y="91" fill="#4ade80">A</text>
-          <rect x="120" y="66" width="70" height="40" rx="7" fill="rgba(74,222,128,.12)" stroke="#4ade80"/><text x="155" y="91" fill="#4ade80">B</text>
-          <rect x="210" y="66" width="70" height="40" rx="7" fill="rgba(74,222,128,.12)" stroke="#4ade80"/><text x="245" y="91" fill="#4ade80">C</text>
-          <rect x="300" y="66" width="70" height="40" rx="7" fill="rgba(74,222,128,.12)" stroke="#4ade80"/><text x="335" y="91" fill="#4ade80">D</text>
-        </g>
-        <g stroke="#7d9486" stroke-dasharray="3 3"><path d="M65 106v20M155 106v20M245 106v20M335 106v20"/></g>
-        <rect x="20" y="126" width="360" height="54" rx="9" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
-        <text x="200" y="149" fill="#fbbf24" font-size="13" font-weight="700" text-anchor="middle">OPERATING SYSTEM</text>
-        <text x="200" y="168" fill="#fde68a" font-size="10.5" text-anchor="middle">virtualize · concurrency · persist</text>
-        <g stroke="#7d9486" stroke-dasharray="3 3"><path d="M80 180v22M200 180v22M320 180v22"/></g>
-        <g font-size="12" font-weight="700" text-anchor="middle">
-          <rect x="30" y="202" width="100" height="44" rx="7" fill="rgba(56,189,248,.12)" stroke="#38bdf8"/><text x="80" y="229" fill="#38bdf8">CPU</text>
-          <rect x="150" y="202" width="100" height="44" rx="7" fill="rgba(56,189,248,.12)" stroke="#38bdf8"/><text x="200" y="229" fill="#38bdf8">RAM</text>
-          <rect x="270" y="202" width="100" height="44" rx="7" fill="rgba(196,181,253,.12)" stroke="#c4b5fd"/><text x="320" y="229" fill="#c4b5fd">DISK</text>
-        </g>
+    <svg viewBox="0 0 420 350" role="img" aria-labelledby="hero-t hero-d">
+      <title id="hero-t">Programs flowing through the OS to the hardware</title>
+      <desc id="hero-d">An animated diagram. A terminal launches four programs, A to D. Glowing packets flow from each program down into an operating-system layer labelled virtualize, concurrency and persist, and from there into the CPU, RAM and disk.</desc>
+      <defs>
+        <linearGradient id="hg-os" x1="0" x2="1"><stop offset="0" stop-color="#fbbf24"/><stop offset="1" stop-color="#f97316"/></linearGradient>
+        <linearGradient id="hg-a" x1="0" x2="1"><stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#22d3ee"/></linearGradient>
+        <linearGradient id="hg-b" x1="0" x2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#60a5fa"/></linearGradient>
+        <linearGradient id="hg-c" x1="0" x2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#f472b6"/></linearGradient>
+        <linearGradient id="hg-d" x1="0" x2="1"><stop offset="0" stop-color="#f472b6"/><stop offset="1" stop-color="#fb923c"/></linearGradient>
+        <filter id="hglow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <path id="hp1" d="M70 112 C 70 140, 120 140, 140 160"/>
+        <path id="hp2" d="M160 112 C 160 135, 180 140, 190 160"/>
+        <path id="hp3" d="M260 112 C 260 135, 240 140, 230 160"/>
+        <path id="hp4" d="M350 112 C 350 140, 300 140, 280 160"/>
+        <path id="hq1" d="M120 222 C 120 245, 85 250, 80 268"/>
+        <path id="hq2" d="M210 222 L 210 268"/>
+        <path id="hq3" d="M300 222 C 300 245, 335 250, 340 268"/>
+      </defs>
+      <!-- terminal bar -->
+      <rect x="14" y="12" width="392" height="40" rx="12" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.1)"/>
+      <circle cx="32" cy="32" r="4.5" fill="#ff5f57"/><circle cx="46" cy="32" r="4.5" fill="#febc2e"/><circle cx="60" cy="32" r="4.5" fill="#28c840"/>
+      <text x="76" y="36.5" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#f472b6">$ <tspan fill="#e4e4ff" data-type="./cpu A &amp; ./cpu B &amp; ./cpu C &amp; ./cpu D &amp;">./cpu A &amp; ./cpu B &amp; ./cpu C &amp; ./cpu D &amp;</tspan></text>
+      <!-- apps -->
+      <g font-family="Sora, sans-serif" font-size="17" font-weight="800" text-anchor="middle" fill="#0b0a1f">
+        <g><rect x="38" y="72" width="64" height="40" rx="12" fill="url(#hg-a)" filter="url(#hglow)"/><text x="70" y="98">A</text><animateTransform attributeName="transform" type="translate" values="0 0;0 -4;0 0" dur="3s" repeatCount="indefinite"/></g>
+        <g><rect x="128" y="72" width="64" height="40" rx="12" fill="url(#hg-b)" filter="url(#hglow)"/><text x="160" y="98">B</text><animateTransform attributeName="transform" type="translate" values="0 0;0 -4;0 0" dur="3s" begin=".5s" repeatCount="indefinite"/></g>
+        <g><rect x="228" y="72" width="64" height="40" rx="12" fill="url(#hg-c)" filter="url(#hglow)"/><text x="260" y="98">C</text><animateTransform attributeName="transform" type="translate" values="0 0;0 -4;0 0" dur="3s" begin="1s" repeatCount="indefinite"/></g>
+        <g><rect x="318" y="72" width="64" height="40" rx="12" fill="url(#hg-d)" filter="url(#hglow)"/><text x="350" y="98">D</text><animateTransform attributeName="transform" type="translate" values="0 0;0 -4;0 0" dur="3s" begin="1.5s" repeatCount="indefinite"/></g>
+      </g>
+      <g fill="none" stroke="rgba(255,255,255,.16)" stroke-width="1.5" stroke-dasharray="4 4">
+        <use href="#hp1"/><use href="#hp2"/><use href="#hp3"/><use href="#hp4"/><use href="#hq1"/><use href="#hq2"/><use href="#hq3"/>
+      </g>
+      <g filter="url(#hglow)">
+        <circle r="4" fill="#34d399"><animateMotion dur="2.2s" repeatCount="indefinite"><mpath href="#hp1"/></animateMotion></circle>
+        <circle r="4" fill="#22d3ee"><animateMotion dur="2.2s" begin=".55s" repeatCount="indefinite"><mpath href="#hp2"/></animateMotion></circle>
+        <circle r="4" fill="#a78bfa"><animateMotion dur="2.2s" begin="1.1s" repeatCount="indefinite"><mpath href="#hp3"/></animateMotion></circle>
+        <circle r="4" fill="#f472b6"><animateMotion dur="2.2s" begin="1.65s" repeatCount="indefinite"><mpath href="#hp4"/></animateMotion></circle>
+        <circle r="4" fill="#fbbf24"><animateMotion dur="1.8s" begin=".3s" repeatCount="indefinite"><mpath href="#hq1"/></animateMotion></circle>
+        <circle r="4" fill="#fbbf24"><animateMotion dur="1.8s" begin=".9s" repeatCount="indefinite"><mpath href="#hq2"/></animateMotion></circle>
+        <circle r="4" fill="#fbbf24"><animateMotion dur="1.8s" begin="1.5s" repeatCount="indefinite"><mpath href="#hq3"/></animateMotion></circle>
+      </g>
+      <!-- OS layer -->
+      <rect x="40" y="160" width="340" height="62" rx="16" fill="rgba(251,191,36,.10)" stroke="url(#hg-os)" stroke-width="2"/>
+      <text x="210" y="186" text-anchor="middle" font-family="Sora, sans-serif" font-size="14" font-weight="800" fill="url(#hg-os)" letter-spacing="2">OPERATING SYSTEM</text>
+      <g font-family="JetBrains Mono, monospace" font-size="9.5" text-anchor="middle">
+        <rect x="70" y="196" width="84" height="18" rx="9" fill="rgba(52,211,153,.18)"/><text x="112" y="208.5" fill="#6ee7b7">virtualize</text>
+        <rect x="168" y="196" width="84" height="18" rx="9" fill="rgba(251,113,133,.18)"/><text x="210" y="208.5" fill="#fda4af">concurrency</text>
+        <rect x="266" y="196" width="84" height="18" rx="9" fill="rgba(167,139,250,.2)"/><text x="308" y="208.5" fill="#c4b5fd">persist</text>
+      </g>
+      <!-- hardware -->
+      <g font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" text-anchor="middle">
+        <rect x="40" y="268" width="80" height="58" rx="12" fill="rgba(34,211,238,.10)" stroke="#22d3ee" stroke-width="1.5"/>
+        <rect x="64" y="280" width="32" height="22" rx="4" fill="none" stroke="#22d3ee"/>
+        <g stroke="#22d3ee" stroke-width="1.2"><path d="M70 276v4M80 276v4M90 276v4M70 302v4M80 302v4M90 302v4"/></g>
+        <text x="80" y="318" fill="#67e8f9">CPU</text>
+        <rect x="170" y="268" width="80" height="58" rx="12" fill="rgba(96,165,250,.10)" stroke="#60a5fa" stroke-width="1.5"/>
+        <g fill="#60a5fa"><rect x="182" y="282" width="8" height="18" rx="2"><animate attributeName="opacity" values="1;.3;1" dur="1.6s" repeatCount="indefinite"/></rect><rect x="194" y="282" width="8" height="18" rx="2"><animate attributeName="opacity" values=".3;1;.3" dur="1.6s" repeatCount="indefinite"/></rect><rect x="206" y="282" width="8" height="18" rx="2"><animate attributeName="opacity" values="1;.3;1" dur="1.6s" begin=".4s" repeatCount="indefinite"/></rect><rect x="218" y="282" width="8" height="18" rx="2"><animate attributeName="opacity" values=".3;1;.3" dur="1.6s" begin=".4s" repeatCount="indefinite"/></rect><rect x="230" y="282" width="8" height="18" rx="2"><animate attributeName="opacity" values="1;.3;1" dur="1.6s" begin=".8s" repeatCount="indefinite"/></rect></g>
+        <text x="210" y="318" fill="#93c5fd">RAM</text>
+        <rect x="300" y="268" width="80" height="58" rx="12" fill="rgba(167,139,250,.12)" stroke="#a78bfa" stroke-width="1.5"/>
+        <circle cx="340" cy="291" r="12" fill="none" stroke="#a78bfa"/><circle cx="340" cy="291" r="2.5" fill="#a78bfa"/>
+        <path d="M340 291 L 350 284" stroke="#c4b5fd" stroke-width="1.6"><animateTransform attributeName="transform" type="rotate" from="0 340 291" to="360 340 291" dur="2.4s" repeatCount="indefinite"/></path>
+        <text x="340" y="318" fill="#c4b5fd">DISK</text>
       </g>
     </svg>
   </div>
 </header>
+
+<div class="stats" aria-label="Chapter at a glance">
+  <div class="stat" style="--g:var(--grad-1)"><b data-count="9">9</b><span>core concepts</span></div>
+  <div class="stat" style="--g:var(--grad-cool)"><b data-count="5">5</b><span>interactive labs</span></div>
+  <div class="stat" style="--g:var(--grad-2)"><b data-count="8">8</b><span>quiz questions</span></div>
+  <div class="stat" style="--g:linear-gradient(120deg,#34d399,#22d3ee)"><b data-count="30">30</b><span>minutes</span></div>
+</div>
 
 <div class="box note">
   <p class="box-label">About this page</p>
@@ -161,10 +216,10 @@
   <h2>Why this matters</h2>
   <p>Every program you have ever written ran on top of an <a class="gl" data-term="operating-system">operating system</a>, and most of its "free" behaviour came from it: your server process gets CPU time even though 300 other processes are running; two browser tabs can't read each other's memory; the file you saved is still there after a reboot. When those guarantees break, the bugs are confusing unless you know what the OS is doing underneath.</p>
   <div class="why-grid">
-    <div class="box"><h4>"Why is my counter wrong?"</h4><p>Multi-threaded code that loses updates is a <strong>concurrency</strong> problem — you'll see it happen in this chapter with 10 lines of C.</p></div>
-    <div class="box"><h4>"Why do two containers not clash?"</h4><p>Each process gets a private <strong>virtual</strong> address space and a share of the CPU. Containers build on these same mechanisms.</p></div>
-    <div class="box"><h4>"I saved it — why is it gone?"</h4><p><code>write()</code> returning doesn't mean the data reached the disk. <strong>Persistence</strong> has rules you need to know.</p></div>
-    <div class="box"><h4>"Why is this syscall-heavy loop slow?"</h4><p>Crossing from your program into the kernel costs far more than a function call. The boundary exists for <strong>protection</strong>.</p></div>
+    <div class="box"><div class="ico" style="--g:var(--grad-2)" aria-hidden="true">🧮</div><h4>"Why is my counter wrong?"</h4><p>Multi-threaded code that loses updates is a <strong>concurrency</strong> problem — you'll see it happen in this chapter with 10 lines of C.</p></div>
+    <div class="box"><div class="ico" style="--g:var(--grad-cool)" aria-hidden="true">📦</div><h4>"Why do two containers not clash?"</h4><p>Each process gets a private <strong>virtual</strong> address space and a share of the CPU. Containers build on these same mechanisms.</p></div>
+    <div class="box"><div class="ico" style="--g:var(--grad-1)" aria-hidden="true">💾</div><h4>"I saved it — why is it gone?"</h4><p><code>write()</code> returning doesn't mean the data reached the disk. <strong>Persistence</strong> has rules you need to know.</p></div>
+    <div class="box"><div class="ico" style="--g:linear-gradient(120deg,#34d399,#22d3ee)" aria-hidden="true">⚡</div><h4>"Why is this syscall-heavy loop slow?"</h4><p>Crossing from your program into the kernel costs far more than a function call. The boundary exists for <strong>protection</strong>.</p></div>
   </div>
   <p>This chapter is a guided tour. It shows you each of the book's three big ideas — <strong>virtualization</strong>, <strong>concurrency</strong>, <strong>persistence</strong> — once, with a tiny program, so that later chapters have something to hang on.</p>
 </section>
@@ -172,7 +227,7 @@
 <!-- ================================================================ MAP -->
 <section class="block" id="map">
   <h2>Big-picture map</h2>
-  <p>Click a box to jump to that concept. Colors are used the same way in every chapter of this guide: <span style="color:var(--accent)">green = your programs</span>, <span style="color:var(--kernel)">amber = the OS / kernel</span>, <span style="color:var(--hw)">cyan = hardware</span>, <span style="color:var(--violet)">violet = stored data</span>, <span style="color:var(--danger)">red = bugs &amp; hazards</span>.</p>
+  <p>Click a box to jump to that concept. Colors are used the same way in every chapter of this guide: <span style="color:var(--c-green)">green = your programs</span>, <span style="color:var(--c-amber)">amber = the OS / kernel</span>, <span style="color:var(--c-cyan)">cyan = hardware</span>, <span style="color:var(--c-violet)">violet = stored data</span>, <span style="color:var(--c-rose)">red = bugs &amp; hazards</span>.</p>
   <figure class="viz">
     <div class="scroll-x">
     <svg viewBox="0 0 760 440" role="img" aria-labelledby="map-t map-d" style="min-width:560px">
@@ -299,9 +354,9 @@ movl %eax, counter(%rip)   # store</code></pre></div></div></div>
     <p class="lead">The OS is the body of software that makes the machine easy to use and safe to share.</p>
     <p>The book describes the same software from three angles. They aren't three different components — they are three ways of looking at one job:</p>
     <div class="why-grid">
-      <div class="box" style="border-left:4px solid var(--accent)"><h4>1 · A virtual machine</h4><p>It takes a physical resource (CPU, memory, disk) and turns it into a more general, more powerful, easier-to-use <a class="gl" data-term="virtualization">virtual</a> version. That's why the OS is sometimes <em>called</em> a virtual machine.</p></div>
-      <div class="box" style="border-left:4px solid var(--kernel)"><h4>2 · A standard library</h4><p>It exports a few hundred <a class="gl" data-term="system-call">system calls</a> — run a program, allocate memory, open a file — that every application can use.</p></div>
-      <div class="box" style="border-left:4px solid var(--hw)"><h4>3 · A resource manager</h4><p>CPU time, memory and disk are shared. The OS decides who gets what, aiming to be efficient, fair, or whatever goal the system has.</p></div>
+      <div class="box"><div class="ico" style="--g:linear-gradient(120deg,#34d399,#22d3ee)" aria-hidden="true">🪞</div><h4>1 · A virtual machine</h4><p>It takes a physical resource (CPU, memory, disk) and turns it into a more general, more powerful, easier-to-use <a class="gl" data-term="virtualization">virtual</a> version. That's why the OS is sometimes <em>called</em> a virtual machine.</p></div>
+      <div class="box"><div class="ico" style="--g:var(--grad-2)" aria-hidden="true">📚</div><h4>2 · A standard library</h4><p>It exports a few hundred <a class="gl" data-term="system-call">system calls</a> — run a program, allocate memory, open a file — that every application can use.</p></div>
+      <div class="box"><div class="ico" style="--g:var(--grad-cool)" aria-hidden="true">⚖️</div><h4>3 · A resource manager</h4><p>CPU time, memory and disk are shared. The OS decides who gets what, aiming to be efficient, fair, or whatever goal the system has.</p></div>
     </div>
     <div class="box definition">
       <p class="box-label">Definition</p>
@@ -393,18 +448,13 @@ write(1, "hello\nworld\n", 12)          = 12
         <desc id="g-d">Timeline with four rows A, B, C, D and twelve time slices. The single CPU runs A, then B, then C, then D, and repeats three times. Small amber marks between slices show the OS switching.</desc>
         <g class="s-text-soft"><text x="40" y="47" text-anchor="end">A</text><text x="40" y="82" text-anchor="end">B</text><text x="40" y="117" text-anchor="end">C</text><text x="40" y="152" text-anchor="end">D</text></g>
         <g class="s-line" stroke-dasharray="2 4"><path d="M55 30h610M55 65h610M55 100h610M55 135h610"/></g>
-        <g class="s-user">
-          <rect x="60" y="32" width="46" height="22" rx="4"/><rect x="260" y="32" width="46" height="22" rx="4"/><rect x="460" y="32" width="46" height="22" rx="4"/>
-          <rect x="110" y="67" width="46" height="22" rx="4"/><rect x="310" y="67" width="46" height="22" rx="4"/><rect x="510" y="67" width="46" height="22" rx="4"/>
-          <rect x="160" y="102" width="46" height="22" rx="4"/><rect x="360" y="102" width="46" height="22" rx="4"/><rect x="560" y="102" width="46" height="22" rx="4"/>
-          <rect x="210" y="137" width="46" height="22" rx="4"/><rect x="410" y="137" width="46" height="22" rx="4"/><rect x="610" y="137" width="46" height="22" rx="4"/>
-        </g>
+        <g><rect x="60" y="32" width="46" height="22" rx="6" class="s-user"/><rect x="260" y="32" width="46" height="22" rx="6" class="s-user"/><rect x="460" y="32" width="46" height="22" rx="6" class="s-user"/><rect x="110" y="67" width="46" height="22" rx="6" class="s-hw"/><rect x="310" y="67" width="46" height="22" rx="6" class="s-hw"/><rect x="510" y="67" width="46" height="22" rx="6" class="s-hw"/><rect x="160" y="102" width="46" height="22" rx="6" class="s-violet"/><rect x="360" y="102" width="46" height="22" rx="6" class="s-violet"/><rect x="560" y="102" width="46" height="22" rx="6" class="s-violet"/><rect x="210" y="137" width="46" height="22" rx="6" class="s-danger"/><rect x="410" y="137" width="46" height="22" rx="6" class="s-danger"/><rect x="610" y="137" width="46" height="22" rx="6" class="s-danger"/></g>
         <g class="f-kernel"><rect x="106" y="28" width="4" height="135"/><rect x="156" y="28" width="4" height="135"/><rect x="206" y="28" width="4" height="135"/><rect x="256" y="28" width="4" height="135"/><rect x="306" y="28" width="4" height="135"/><rect x="356" y="28" width="4" height="135"/><rect x="406" y="28" width="4" height="135"/><rect x="456" y="28" width="4" height="135"/><rect x="506" y="28" width="4" height="135"/><rect x="556" y="28" width="4" height="135"/><rect x="606" y="28" width="4" height="135"/></g>
         <path d="M55 178h615" class="s-arrow"/><text x="670" y="194" text-anchor="end" class="s-text-soft">time →</text>
         <text x="60" y="194" class="s-text-soft">one physical CPU</text>
       </svg>
       </div>
-      <div class="legend"><span style="--sw:var(--accent)">program running on the CPU</span><span style="--sw:var(--kernel)">OS switches programs</span></div>
+      <div class="legend"><span style="--sw:linear-gradient(90deg,var(--c-green),var(--c-cyan),var(--c-violet),var(--c-rose))">program running on the CPU</span><span style="--sw:var(--c-amber)">OS switches programs</span></div>
       <figcaption><strong>Figure 4 — time sharing.</strong> At any instant only one program runs; switch fast enough and all four appear to run continuously. Try it live in <a href="#lab-cpu">Lab 1</a>.</figcaption>
     </figure>
 
@@ -582,7 +632,7 @@ C
       <p style="margin-top:0">Each button runs one loop iteration of <code>*p = *p + 1</code> in that process. Watch which physical cell changes.</p>
       <div class="mm-grid">
         <div class="mm-proc"><h5>PID 24113</h5><div>p = 0x200000</div><div>*p = <strong id="mm-v1">0</strong></div><button class="btn" type="button" id="mm-b1" style="margin-top:.5rem">run 24113: (*p)++</button></div>
-        <div class="mm-proc" style="border-color:var(--violet);background:var(--violet-soft)"><h5 style="color:var(--violet)">PID 24114</h5><div>p = 0x200000</div><div>*p = <strong id="mm-v2">0</strong></div><button class="btn" type="button" id="mm-b2" style="margin-top:.5rem">run 24114: (*p)++</button></div>
+        <div class="mm-proc p2"><h5>PID 24114</h5><div>p = 0x200000</div><div>*p = <strong id="mm-v2">0</strong></div><button class="btn" type="button" id="mm-b2" style="margin-top:.5rem">run 24114: (*p)++</button></div>
       </div>
       <div class="mm-phys"><span>physical memory (frames 0–7, illustrative)</span><div class="cells" id="mm-cells"></div></div>
       <div class="controls"><button class="btn" type="button" id="mm-share" aria-pressed="false">What if there were NO virtualization?</button><button class="btn" type="button" id="mm-reset">↺ Reset</button></div>
@@ -1006,7 +1056,7 @@ system call   :  280.5 ns each</code></pre></div>
       <p class="breaks"><strong>Where it breaks down:</strong> airports can wave trusted travellers through. An OS can't fully trust any user program — the check happens on every system call.</p>
     </div>
     <div class="box">
-      <p class="box-label" style="color:var(--accent)">Example: the cost of protection, in numbers</p>
+      <p class="box-label" style="color:var(--c-green)">Example: the cost of protection, in numbers</p>
       <p>The benchmark in concept 7 measured ~1.7 ns for a function call and ~280 ns for a system call. That ~165× difference is (part of) the price of protection. It's also why the OS's job is to make the <em>common path</em> fast: a program like <code>./cpu</code> runs entirely in user mode, directly on the CPU, with no OS involvement until the timer fires — virtualization at near-zero overhead. Chapter 04 shows how this "limited direct execution" works.</p>
     </div>
     <div class="box gotcha">
@@ -1120,9 +1170,9 @@ system call   :  280.5 ns each</code></pre></div>
       </label>
     </div>
     <div class="race-grid">
-      <div class="thread-card" id="rc-t1"><h5 style="color:var(--accent)">Thread 1</h5><ol></ol><div class="reg">eax = <span>—</span></div></div>
+      <div class="thread-card" id="rc-t1"><h5 style="color:var(--c-green)">Thread 1</h5><ol></ol><div class="reg">eax = <span>—</span></div></div>
       <div class="race-mem"><div class="k mono" style="font-size:.7rem;color:var(--muted)">counter (RAM)</div><div class="big" id="rc-mem">50</div><div class="mono" style="font-size:.72rem;color:var(--muted)">expected: <span id="rc-exp">52</span></div></div>
-      <div class="thread-card" id="rc-t2"><h5 style="color:var(--violet)">Thread 2</h5><ol></ol><div class="reg">eax = <span>—</span></div></div>
+      <div class="thread-card" id="rc-t2"><h5 style="color:var(--c-violet)">Thread 2</h5><ol></ol><div class="reg">eax = <span>—</span></div></div>
     </div>
     <div class="controls">
       <button class="btn primary" type="button" id="rc-play">▶ Play</button>
@@ -1196,7 +1246,7 @@ close(3)                                = 0</code></pre></div>
     <li data-lines="12-16"><span class="ln">L12–16</span><span><strong>Sharing through files.</strong> A different process, <code>cat</code>, opens the same file and reads the 6 bytes. It gets them even if they haven't reached the disk yet — the kernel serves them from the page cache. Files are shared, not virtualized.</span></li>
   </ol>
   <div class="box">
-    <p class="box-label" style="color:var(--accent)">Putting it together</p>
+    <p class="box-label" style="color:var(--c-green)">Putting it together</p>
     <ul>
       <li><strong>Virtualization:</strong> <code>sh</code> and <code>cat</code> each ran as if they had the CPU and memory to themselves.</li>
       <li><strong>Protection:</strong> every file access went through a system call (trap into kernel mode) — neither program touched the disk directly.</li>
@@ -1311,7 +1361,7 @@ void *worker(void *arg) {
 
     <div class="q" data-answer="c"><fieldset>
       <legend>What does <code>./threads 100000</code> (the racy version) print as its final value?</legend>
-      <pre class="term mono" style="font-size:.8rem;background:var(--term-bg);color:var(--term-fg);padding:.5rem .7rem;border-radius:8px">Initial value : 0
+      <pre class="term mono" style="font-size:.8rem;background:var(--term-bg);color:#b8f7d4;padding:.6rem .8rem;border-radius:12px">Initial value : 0
 Final value   : ???</pre>
       <div class="opts">
         <label><input type="radio" name="q3" value="a"> Always 200000</label>
@@ -1429,34 +1479,34 @@ Final value   : ???</pre>
 <section class="block" id="glossary">
   <h2>Glossary</h2>
   <dl class="glossary">
-    <dt id="g-address-space">address space</dt><dd>The private range of virtual addresses a process sees, holding its code, heap and stack.</dd>
-    <dt id="g-aslr">ASLR</dt><dd>Address-space layout randomization: placing a process's stack, heap and libraries at random virtual addresses each run, to make attacks harder.</dd>
-    <dt id="g-atomic">atomic</dt><dd>Happening all at once or not at all, as seen by everyone else; nothing can observe or interleave with a half-done atomic operation.</dd>
-    <dt id="g-batch-processing">batch processing</dt><dd>Early mode of computing: an operator ran a set ("batch") of jobs one after another, with no interactive use.</dd>
-    <dt id="g-concurrency">concurrency</dt><dd>Several activities in progress at the same time (interleaved or truly parallel), and the problems that arise when they share data.</dd>
-    <dt id="g-context-switch">context switch</dt><dd>Saving the registers of the running program and restoring another's, so the CPU can switch between programs.</dd>
-    <dt id="g-device-driver">device driver</dt><dd>OS code that knows how to operate one specific kind of device.</dd>
-    <dt id="g-file-system">file system</dt><dd>The part of the OS that stores files on persistent devices reliably and efficiently.</dd>
-    <dt id="g-fsync">fsync</dt><dd>System call that blocks until the file's buffered data has been written to the storage device.</dd>
-    <dt id="g-journaling">journaling</dt><dd>Crash-safety technique: first write a log record describing an update, then perform the update, so a crash can be repaired from the log.</dd>
-    <dt id="g-kernel">kernel</dt><dd>The core of the OS, which runs in kernel mode with full access to the hardware.</dd>
-    <dt id="g-kernel-mode">kernel mode</dt><dd>Privileged CPU mode in which all instructions, I/O and memory are available. The OS runs here.</dd>
-    <dt id="g-mechanism">mechanism</dt><dd>A low-level method that implements a piece of functionality — the "how" (e.g. switching between programs).</dd>
-    <dt id="g-multiprogramming">multiprogramming</dt><dd>Keeping several jobs in memory and switching among them, e.g. while one waits for I/O, to keep the CPU busy.</dd>
-    <dt id="g-operating-system">operating system</dt><dd>Software that virtualizes the machine's resources, offers them through system calls, and manages them among programs — making the system easy to use, correct and efficient.</dd>
-    <dt id="g-page-cache">page cache</dt><dd>Kernel memory holding recently used file data; writes land here first and are flushed to the device later.</dd>
-    <dt id="g-pid">PID</dt><dd>Process identifier: a number unique to each running process.</dd>
-    <dt id="g-policy">policy</dt><dd>An algorithm that makes a decision using mechanisms — the "which" (e.g. which program runs next).</dd>
-    <dt id="g-process">process</dt><dd>A running program: its address space, registers and OS bookkeeping (Chapter 02).</dd>
-    <dt id="g-race-condition">race condition</dt><dd>A bug where the result depends on the timing of how concurrent operations interleave.</dd>
-    <dt id="g-system-call">system call</dt><dd>A request to the OS made via a trap, which enters the kernel at a fixed entry point and raises the privilege level.</dd>
-    <dt id="g-thread">thread</dt><dd>One stream of execution. Threads in the same process share its address space.</dd>
-    <dt id="g-trap">trap</dt><dd>Instruction (or event) that transfers control into the OS while switching to kernel mode.</dd>
-    <dt id="g-trap-handler">trap handler</dt><dd>OS code, registered with the hardware at boot, that runs when a trap occurs.</dd>
-    <dt id="g-user-mode">user mode</dt><dd>Restricted CPU mode for applications: no direct I/O, no access to arbitrary memory.</dd>
-    <dt id="g-virtualization">virtualization</dt><dd>Turning a physical resource into a more general, easier-to-use virtual form — often the illusion that each program has its own copy.</dd>
-    <dt id="g-volatile-memory">volatile memory</dt><dd>Storage that loses its contents when power is lost, such as DRAM. (Unrelated to C's <code>volatile</code> keyword.)</dd>
-    <dt id="g-von-neumann">von Neumann model</dt><dd>Computer model in which instructions and data share memory and the CPU repeatedly fetches, decodes and executes instructions.</dd>
+    <div class="g-item"><dt id="g-address-space">address space</dt><dd>The private range of virtual addresses a process sees, holding its code, heap and stack.</dd></div>
+    <div class="g-item"><dt id="g-aslr">ASLR</dt><dd>Address-space layout randomization: placing a process's stack, heap and libraries at random virtual addresses each run, to make attacks harder.</dd></div>
+    <div class="g-item"><dt id="g-atomic">atomic</dt><dd>Happening all at once or not at all, as seen by everyone else; nothing can observe or interleave with a half-done atomic operation.</dd></div>
+    <div class="g-item"><dt id="g-batch-processing">batch processing</dt><dd>Early mode of computing: an operator ran a set ("batch") of jobs one after another, with no interactive use.</dd></div>
+    <div class="g-item"><dt id="g-concurrency">concurrency</dt><dd>Several activities in progress at the same time (interleaved or truly parallel), and the problems that arise when they share data.</dd></div>
+    <div class="g-item"><dt id="g-context-switch">context switch</dt><dd>Saving the registers of the running program and restoring another's, so the CPU can switch between programs.</dd></div>
+    <div class="g-item"><dt id="g-device-driver">device driver</dt><dd>OS code that knows how to operate one specific kind of device.</dd></div>
+    <div class="g-item"><dt id="g-file-system">file system</dt><dd>The part of the OS that stores files on persistent devices reliably and efficiently.</dd></div>
+    <div class="g-item"><dt id="g-fsync">fsync</dt><dd>System call that blocks until the file's buffered data has been written to the storage device.</dd></div>
+    <div class="g-item"><dt id="g-journaling">journaling</dt><dd>Crash-safety technique: first write a log record describing an update, then perform the update, so a crash can be repaired from the log.</dd></div>
+    <div class="g-item"><dt id="g-kernel">kernel</dt><dd>The core of the OS, which runs in kernel mode with full access to the hardware.</dd></div>
+    <div class="g-item"><dt id="g-kernel-mode">kernel mode</dt><dd>Privileged CPU mode in which all instructions, I/O and memory are available. The OS runs here.</dd></div>
+    <div class="g-item"><dt id="g-mechanism">mechanism</dt><dd>A low-level method that implements a piece of functionality — the "how" (e.g. switching between programs).</dd></div>
+    <div class="g-item"><dt id="g-multiprogramming">multiprogramming</dt><dd>Keeping several jobs in memory and switching among them, e.g. while one waits for I/O, to keep the CPU busy.</dd></div>
+    <div class="g-item"><dt id="g-operating-system">operating system</dt><dd>Software that virtualizes the machine's resources, offers them through system calls, and manages them among programs — making the system easy to use, correct and efficient.</dd></div>
+    <div class="g-item"><dt id="g-page-cache">page cache</dt><dd>Kernel memory holding recently used file data; writes land here first and are flushed to the device later.</dd></div>
+    <div class="g-item"><dt id="g-pid">PID</dt><dd>Process identifier: a number unique to each running process.</dd></div>
+    <div class="g-item"><dt id="g-policy">policy</dt><dd>An algorithm that makes a decision using mechanisms — the "which" (e.g. which program runs next).</dd></div>
+    <div class="g-item"><dt id="g-process">process</dt><dd>A running program: its address space, registers and OS bookkeeping (Chapter 02).</dd></div>
+    <div class="g-item"><dt id="g-race-condition">race condition</dt><dd>A bug where the result depends on the timing of how concurrent operations interleave.</dd></div>
+    <div class="g-item"><dt id="g-system-call">system call</dt><dd>A request to the OS made via a trap, which enters the kernel at a fixed entry point and raises the privilege level.</dd></div>
+    <div class="g-item"><dt id="g-thread">thread</dt><dd>One stream of execution. Threads in the same process share its address space.</dd></div>
+    <div class="g-item"><dt id="g-trap">trap</dt><dd>Instruction (or event) that transfers control into the OS while switching to kernel mode.</dd></div>
+    <div class="g-item"><dt id="g-trap-handler">trap handler</dt><dd>OS code, registered with the hardware at boot, that runs when a trap occurs.</dd></div>
+    <div class="g-item"><dt id="g-user-mode">user mode</dt><dd>Restricted CPU mode for applications: no direct I/O, no access to arbitrary memory.</dd></div>
+    <div class="g-item"><dt id="g-virtualization">virtualization</dt><dd>Turning a physical resource into a more general, easier-to-use virtual form — often the illusion that each program has its own copy.</dd></div>
+    <div class="g-item"><dt id="g-volatile-memory">volatile memory</dt><dd>Storage that loses its contents when power is lost, such as DRAM. (Unrelated to C's <code>volatile</code> keyword.)</dd></div>
+    <div class="g-item"><dt id="g-von-neumann">von Neumann model</dt><dd>Computer model in which instructions and data share memory and the CPU repeatedly fetches, decodes and executes instructions.</dd></div>
   </dl>
 </section>
 
@@ -1637,7 +1687,8 @@ Final value   : ???</pre>
       if (st.work[n] % NEED === 0) { st.out += n + "\n"; st.lines++; }
       render(); return true;
     }
-    function color(n) { return n === "sw" ? LV.cssVar("--kernel") : n === "idle" ? LV.cssVar("--border") : LV.cssVar("--accent"); }
+    var pc = { A: "--c-green", B: "--c-cyan", C: "--c-violet", D: "--c-pink" };
+    function color(n) { return n === "sw" ? LV.cssVar("--c-amber") : n === "idle" ? LV.cssVar("--border") : LV.cssVar(pc[n]); }
     function render() {
       var svg = $("cs-svg");
       var start = Math.max(0, st.hist.length - SLOTS);
@@ -1649,8 +1700,8 @@ Final value   : ???</pre>
       html += '<text x="20" y="152" class="s-text-soft">OS</text>';
       for (var k = start; k < st.hist.length; k++) {
         var h = st.hist[k], x = 55 + (k - start) * w;
-        if (h === "sw") html += '<rect x="' + x + '" y="140" width="' + (w - 1) + '" height="16" rx="2" fill="' + color("sw") + '"/>';
-        else if (h !== "idle") { var row = names.indexOf(h); html += '<rect x="' + x + '" y="' + (14 + row * 30) + '" width="' + (w - 1) + '" height="22" rx="3" fill="' + color(h) + '" opacity=".85"/>'; }
+        if (h === "sw") html += '<rect x="' + x + '" y="140" width="' + (w - 1.5) + '" height="16" rx="5" fill="' + color("sw") + '"/>';
+        else if (h !== "idle") { var row = names.indexOf(h); html += '<rect x="' + x + '" y="' + (14 + row * 30) + '" width="' + (w - 1.5) + '" height="22" rx="5" fill="' + color(h) + '"/>'; }
       }
       svg.innerHTML = html;
       $("cs-t").textContent = st.t;
@@ -1720,7 +1771,7 @@ Final value   : ???</pre>
         card.classList.toggle("active", st.last === t);
       });
       $("rc-mem").textContent = st.mem;
-      $("rc-mem").style.color = done() ? (st.mem === 52 ? LV.cssVar("--accent") : LV.cssVar("--danger")) : "";
+      $("rc-mem").style.color = done() ? (st.mem === 52 ? LV.cssVar("--c-green") : LV.cssVar("--c-rose")) : "";
       $("rc-run1").disabled = st.pc[1] >= 3; $("rc-run2").disabled = st.pc[2] >= 3;
       $("rc-status").textContent = msg;
     }
@@ -1774,7 +1825,7 @@ Final value   : ???</pre>
       draw(p, n);
     }
     function draw(p, n) {
-      var accent = LV.cssVar("--accent"), muted = LV.cssVar("--muted"), grid = LV.cssVar("--border"), text = LV.cssVar("--text-soft"), kernel = LV.cssVar("--kernel");
+      var accent = LV.cssVar("--c-pink"), muted = LV.cssVar("--muted"), grid = LV.cssVar("--border"), text = LV.cssVar("--text-soft"), kernel = LV.cssVar("--c-amber");
       var series = [0.2, 0.5, 0.8].map(function (pp) { return { label: "p = " + Math.round(pp * 100) + "%", data: ns.map(function (x) { return Math.round(util(pp, x) * 100); }), borderColor: muted, borderDash: [4, 4], pointRadius: 0, borderWidth: 1.5, tension: .25 }; });
       var cur = { label: "your p = " + Math.round(p * 100) + "%", data: ns.map(function (x) { return Math.round(util(p, x) * 100); }), borderColor: accent, backgroundColor: accent, borderWidth: 3, tension: .25, pointRadius: ns.map(function (x) { return x === n ? 6 : 2; }), pointBackgroundColor: ns.map(function (x) { return x === n ? kernel : accent; }) };
       if (window.Chart) {
