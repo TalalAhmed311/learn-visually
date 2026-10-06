@@ -1,95 +1,51 @@
 /* ==========================================================================
-   OSTEP theme — "neon kernel": deep indigo night, neon gradients.
-   Semantic colors (fixed across every chapter of this book):
-     green  = user programs / processes        amber/orange = the OS / kernel
-     cyan   = hardware (CPU, RAM, MMU)          violet       = stored data
-     rose   = bugs, races, crashes
+   OSTEP theme — "Calm": graphite, soft gray text, one muted teal accent.
+   Dark is the default (set via data-theme on <html>); light is available.
+   Diagram semantic colors (same in every chapter, deliberately muted):
+     green = user programs · amber = OS/kernel · cyan = hardware
+     violet = stored data · rose = bugs & hazards
    ========================================================================== */
 :root {
-  --font-head: "Sora", "Space Grotesk", system-ui, sans-serif;
+  --font-head: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --r: 8px;
 
-  /* light — "pastel daylight" */
-  --bg: #f5f4ff;
-  --glass: rgba(255, 255, 255, .62);
-  --glass-strong: rgba(255, 255, 255, .78);
-  --surface-solid: #ffffff;
-  --surface-2: rgba(240, 238, 255, .75);
-  --border: rgba(76, 60, 160, .12);
-  --border-strong: rgba(76, 60, 160, .24);
-  --text: #2a2747;
-  --text-strong: #12102b;
-  --text-soft: #4d4970;
-  --muted: #6e6a92;
-  --link: #6d28d9;
-  --spot: rgba(139, 92, 246, .10);
-  --ring: rgba(139, 92, 246, .18);
-  --grid-dot: rgba(76, 60, 160, .14);
-  --blob-opacity: .28;
-  --glow-violet: rgba(124, 58, 237, .45);
+  /* light */
+  --bg: #f4f5f5;
+  --soft: #eaeded;
+  --line: #dde1e1;
+  --line-strong: #c3c9c9;
+  --text: #2c3333;
+  --text-strong: #111717;
+  --muted: #667070;
+  --accent: #2a7f7a;
+  --tip-bg: #ffffff; --tip-fg: #2c3333;
+  --c-green: #3d8a5f;  --c-green-soft: rgba(61, 138, 95, .10);
+  --c-amber: #a7742a;  --c-amber-soft: rgba(167, 116, 42, .10);
+  --c-cyan: #3b7f9c;   --c-cyan-soft: rgba(59, 127, 156, .10);
+  --c-violet: #7466a8; --c-violet-soft: rgba(116, 102, 168, .10);
+  --c-rose: #b04646;   --c-rose-soft: rgba(176, 70, 70, .08);
 
-  --c-green: #059669; --c-cyan: #0891b2; --c-blue: #2563eb; --c-violet: #7c3aed;
-  --c-pink: #db2777; --c-rose: #e11d48; --c-amber: #d97706; --c-orange: #ea580c;
-
-  --grad-1: linear-gradient(120deg, #7c3aed 0%, #db2777 55%, #f97316 100%);
-  --grad-2: linear-gradient(120deg, #f59e0b, #ef4444);
-  --grad-cool: linear-gradient(120deg, #06b6d4, #3b82f6 50%, #8b5cf6);
-  --grad-title: linear-gradient(100deg, #4c1d95 0%, #7c3aed 25%, #db2777 50%, #ea580c 75%, #7c3aed 100%);
-  --grad-soft: linear-gradient(120deg, rgba(124, 58, 237, .12), rgba(219, 39, 119, .10));
-
-  --hero-bg: radial-gradient(circle at 30% 20%, #241a5c, #0d0b26 70%);
-  --code-bg: #0f0e24;
-  --code-head-bg: #15132f;
-  --code-border: #26244a;
-  --code-fg: #e4e4ff;
-  --code-inline-bg: rgba(124, 58, 237, .09);
-  --code-inline-fg: #6d28d9;
-  --term-bg: #0a0919;
+  /* code is always on a dark surface */
+  --code-bg: #1d2222; --code-fg: #d6dede; --code-muted: #7d8a8a; --code-gutter: #4f5a5a; --code-line: #2b3333; --code-accent: #7fc8c2;
   color-scheme: light;
 }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #070614;
-    --glass: rgba(22, 20, 48, .55);
-    --glass-strong: rgba(10, 9, 28, .72);
-    --surface-solid: #12102b;
-    --surface-2: rgba(255, 255, 255, .045);
-    --border: rgba(160, 150, 255, .12);
-    --border-strong: rgba(160, 150, 255, .22);
-    --text: #d6d5f5; --text-strong: #ffffff; --text-soft: #a9a7d4; --muted: #8380b3; --link: #c4b5fd;
-    --spot: rgba(167, 139, 250, .12); --ring: rgba(167, 139, 250, .2); --grid-dot: rgba(200, 190, 255, .08);
-    --blob-opacity: .32; --glow-violet: rgba(139, 92, 246, .55);
-    --c-green: #34d399; --c-cyan: #22d3ee; --c-blue: #60a5fa; --c-violet: #a78bfa;
-    --c-pink: #f472b6; --c-rose: #fb7185; --c-amber: #fbbf24; --c-orange: #fb923c;
-    --grad-1: linear-gradient(120deg, #8b5cf6 0%, #ec4899 55%, #f97316 100%);
-    --grad-title: linear-gradient(100deg, #ffffff 0%, #c4b5fd 25%, #f472b6 50%, #fdba74 75%, #ffffff 100%);
-    --grad-soft: linear-gradient(120deg, rgba(139, 92, 246, .2), rgba(236, 72, 153, .14));
-    --code-inline-bg: rgba(167, 139, 250, .12); --code-inline-fg: #ddd6fe;
-    color-scheme: dark;
-  }
-}
 :root[data-theme="dark"] {
-  --bg: #070614;
-  --glass: rgba(22, 20, 48, .55);
-  --glass-strong: rgba(10, 9, 28, .72);
-  --surface-solid: #12102b;
-  --surface-2: rgba(255, 255, 255, .045);
-  --border: rgba(160, 150, 255, .12);
-  --border-strong: rgba(160, 150, 255, .22);
-  --text: #d6d5f5; --text-strong: #ffffff; --text-soft: #a9a7d4; --muted: #8380b3; --link: #c4b5fd;
-  --spot: rgba(167, 139, 250, .12); --ring: rgba(167, 139, 250, .2); --grid-dot: rgba(200, 190, 255, .08);
-  --blob-opacity: .32; --glow-violet: rgba(139, 92, 246, .55);
-  --c-green: #34d399; --c-cyan: #22d3ee; --c-blue: #60a5fa; --c-violet: #a78bfa;
-  --c-pink: #f472b6; --c-rose: #fb7185; --c-amber: #fbbf24; --c-orange: #fb923c;
-  --grad-1: linear-gradient(120deg, #8b5cf6 0%, #ec4899 55%, #f97316 100%);
-  --grad-title: linear-gradient(100deg, #ffffff 0%, #c4b5fd 25%, #f472b6 50%, #fdba74 75%, #ffffff 100%);
-  --grad-soft: linear-gradient(120deg, rgba(139, 92, 246, .2), rgba(236, 72, 153, .14));
-  --code-inline-bg: rgba(167, 139, 250, .12); --code-inline-fg: #ddd6fe;
+  --bg: #141818;
+  --soft: #1b2121;
+  --line: #263030;
+  --line-strong: #364242;
+  --text: #c6cdcd;
+  --text-strong: #eef3f3;
+  --muted: #859090;
+  --accent: #6cc0b8;
+  --tip-bg: #1f2626; --tip-fg: #d6dede;
+  --c-green: #7fcf9f;  --c-green-soft: rgba(127, 207, 159, .08);
+  --c-amber: #d9b27a;  --c-amber-soft: rgba(217, 178, 122, .08);
+  --c-cyan: #7fb8d6;   --c-cyan-soft: rgba(127, 184, 214, .08);
+  --c-violet: #b3a3e0; --c-violet-soft: rgba(179, 163, 224, .08);
+  --c-rose: #e38c8c;   --c-rose-soft: rgba(227, 140, 140, .08);
+  --code-bg: #0f1313; --code-line: #212929;
   color-scheme: dark;
 }
-
-/* OS motif: terminal caret on the title */
-.hero h1 .caret { display: inline-block; width: .09em; height: .9em; margin-left: .08em; vertical-align: -.06em; background: var(--c-pink); border-radius: 2px; animation: blink 1.1s steps(1) infinite; -webkit-text-fill-color: initial; }
-@keyframes blink { 50% { opacity: 0; } }
