@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Theme samples</title>
+<style>
+:root{color-scheme:light dark;--bg:#fff;--fg:#222;--muted:#666;--line:#e5e5e5}
+@media (prefers-color-scheme:dark){:root{--bg:#111;--fg:#ddd;--muted:#999;--line:#2a2a2a}}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,sans-serif;line-height:1.6}
+main{max-width:720px;margin:0 auto;padding:48px 20px}
+h1{margin:0 0 .3em} p{color:var(--muted)}
+.grid{display:grid;gap:12px;margin-top:24px}
+.card{display:grid;gap:4px;padding:16px 18px;border:1px solid var(--line);border-radius:10px;color:inherit;text-decoration:none}
+.card:hover{border-color:var(--fg)}
+.card span{color:var(--muted);font-size:.92rem}
+.sw{display:flex;gap:4px;margin-bottom:6px} .sw i{width:22px;height:22px;border-radius:5px;border:1px solid var(--line)}
+</style></head>
+<body><main>
+<h1>Pick a theme</h1>
+<p>Same short sample content in four minimalist styles. Each page has a Dark / Light toggle in the top-right corner.</p>
+<div class="grid"><a class="card" href="paper.html"><span class="sw"><i style="background:#faf8f4"></i><i style="background:#f2eee7"></i><i style="background:#1f4e8c"></i><i style="background:#1b1a18"></i><i style="background:#8db4e8"></i></span><strong>Paper</strong><span>Warm off-white, serif headings, one ink-blue accent. Reads like a well-set textbook.</span></a><a class="card" href="mono.html"><span class="sw"><i style="background:#ffffff"></i><i style="background:#f5f5f5"></i><i style="background:#0050d8"></i><i style="background:#0d0d0d"></i><i style="background:#6aa0ff"></i></span><strong>Mono</strong><span>Black and white with a single blue. Clean sans-serif, sharp corners, no decoration.</span></a><a class="card" href="calm.html"><span class="sw"><i style="background:#f4f5f5"></i><i style="background:#eaeded"></i><i style="background:#2a7f7a"></i><i style="background:#141818"></i><i style="background:#6cc0b8"></i></span><strong>Calm Dark</strong><span>Dark-first graphite with soft gray text and a muted teal. Easy on the eyes at night.</span></a><a class="card" href="notes.html"><span class="sw"><i style="background:#ffffff"></i><i style="background:#f7f6f3"></i><i style="background:#6b5bd2"></i><i style="background:#191919"></i><i style="background:#a397f0"></i></span><strong>Notes</strong><span>Like a tidy notes app: system font, light gray blocks, gentle rounded corners, muted purple.</span></a></div>
+</main></body></html>

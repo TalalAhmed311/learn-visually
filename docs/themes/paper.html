@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Theme sample · Paper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Inter:wght@400;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<style>:root{--head:"Newsreader",Georgia,serif;--body:"Inter",system-ui,sans-serif;--mono:"JetBrains Mono",monospace;--r:4px;--bg:#faf8f4;--fg:#2b2b2b;--strong:#111;--muted:#6b6760;--line:#e4dfd6;--soft:#f2eee7;--accent:#1f4e8c;--accent-soft:#e6edf6;--codebg:#f2eee7;--codefg:#2b2b2b;--ck:#1f4e8c;--cs:#7a4b00;--cn:#8a2c2c;--cc:#8a857c;--ok:#2f6b3a;--bad:#a12d2d;color-scheme:light}@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--head:"Newsreader",Georgia,serif;--body:"Inter",system-ui,sans-serif;--mono:"JetBrains Mono",monospace;--r:4px;--bg:#1b1a18;--fg:#d9d5cd;--strong:#f3efe7;--muted:#9a958c;--line:#34312c;--soft:#25231f;--accent:#8db4e8;--accent-soft:#22303f;--codebg:#25231f;--codefg:#d9d5cd;--ck:#8db4e8;--cs:#d9b27a;--cn:#e09a9a;--cc:#7d786f;--ok:#8fc79a;--bad:#e08b8b;color-scheme:dark}}:root[data-theme=dark]{--head:"Newsreader",Georgia,serif;--body:"Inter",system-ui,sans-serif;--mono:"JetBrains Mono",monospace;--r:4px;--bg:#1b1a18;--fg:#d9d5cd;--strong:#f3efe7;--muted:#9a958c;--line:#34312c;--soft:#25231f;--accent:#8db4e8;--accent-soft:#22303f;--codebg:#25231f;--codefg:#d9d5cd;--ck:#8db4e8;--cs:#d9b27a;--cn:#e09a9a;--cc:#7d786f;--ok:#8fc79a;--bad:#e08b8b;color-scheme:dark}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);line-height:1.7;-webkit-font-smoothing:antialiased}
+main{max-width:680px;margin:0 auto;padding:24px 20px 80px}
+.top{max-width:680px;margin:0 auto;padding:18px 20px 0;display:flex;justify-content:space-between;align-items:center;font-size:.85rem}
+.back{color:var(--muted);text-decoration:none} .back:hover{color:var(--accent)}
+.toggle{font:inherit;font-size:.8rem;color:var(--muted);background:none;border:1px solid var(--line);border-radius:var(--r);padding:.3rem .7rem;cursor:pointer}
+.toggle:hover{color:var(--fg)}
+h1,h2{font-family:var(--head);color:var(--strong);line-height:1.2}
+h1{font-size:clamp(2rem,5vw,2.6rem);margin:.2em 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.3rem;margin:2.4em 0 .6em}
+.eyebrow{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin:2rem 0 0}
+.lead{font-size:1.15rem;color:var(--muted)}
+code,pre{font-family:var(--mono)}
+:not(pre)>code{font-size:.88em;background:var(--soft);padding:.1em .35em;border-radius:4px}
+.defs{margin:0}
+.defs dt{font-weight:600;color:var(--strong);margin-top:1rem}
+.defs dd{margin:.15rem 0 0;color:var(--fg)}
+.code{background:var(--codebg);color:var(--codefg);padding:1rem 1.2rem;border-radius:var(--r);overflow-x:auto;font-size:.85rem;line-height:1.6}
+.code .k{color:var(--ck)} .code .s{color:var(--cs)} .code .n{color:var(--cn)} .code .c{color:var(--cc);font-style:italic}
+.fig{margin:2rem 0}
+.fig svg{width:100%;height:auto;display:block}
+.fig figcaption{font-size:.85rem;color:var(--muted);margin-top:.5rem}
+.l1,.l2,.l3{fill:var(--soft);stroke:var(--line)} .l2{fill:var(--accent-soft);stroke:var(--accent)}
+.lt{font-family:var(--body);font-size:14px;fill:var(--strong);text-anchor:middle}
+.callout{margin:2rem 0;padding:1rem 1.2rem;border-left:3px solid var(--accent);background:var(--soft);border-radius:0 var(--r) var(--r) 0}
+.callout p{margin:.3rem 0 0}
+.quiz{margin:2.5rem 0;padding-top:1.5rem;border-top:1px solid var(--line)}
+.q{font-weight:600;color:var(--strong)}
+.opts{list-style:none;padding:0;display:grid;gap:.5rem}
+.opts button{width:100%;text-align:left;font:inherit;font-family:var(--mono);font-size:.9rem;color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:var(--r);padding:.6rem .9rem;cursor:pointer}
+.opts button:hover{border-color:var(--accent)}
+.opts button.right{border-color:var(--ok);color:var(--ok)} .opts button.wrong{border-color:var(--bad);color:var(--bad)}
+.fb{color:var(--muted);min-height:1.5em}
+.pager{display:flex;justify-content:space-between;gap:1rem;margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--line);font-size:.92rem}
+.pager a{color:var(--accent);text-decoration:none} .pager a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<header class="top">
+  <a href="index.html" class="back">← All themes</a>
+  <button class="toggle" type="button" aria-label="Toggle dark mode">Dark / Light</button>
+</header>
+<main>
+  <p class="eyebrow">Chapter 01 · Introduction</p>
+  <h1>What is an Operating System?</h1>
+  <p class="lead">The software that lets many programs share one machine — safely, and as if each had it to itself.</p>
+
+  <h2>Key definitions</h2>
+  <dl class="defs">
+    <dt>Operating system</dt>
+    <dd>Software that manages the hardware and offers programs a simpler, safer way to use it.</dd>
+    <dt>Process</dt>
+    <dd>A running program: its code, its memory, and the CPU state it needs to continue.</dd>
+    <dt>Virtualization</dt>
+    <dd>Making one physical resource look like many private ones — one CPU feels like many.</dd>
+    <dt>System call</dt>
+    <dd>A controlled request from a program to the OS, e.g. <code>open()</code> or <code>write()</code>.</dd>
+  </dl>
+
+  <h2>A tiny example</h2>
+  <p>Writing to a file is a request to the OS. The program never touches the disk directly.</p>
+  <pre class="code"><code><span class="k">int</span> fd = open(<span class="s">"notes.txt"</span>, O_WRONLY | O_CREAT, <span class="n">0644</span>);
+write(fd, <span class="s">"hello\n"</span>, <span class="n">6</span>);   <span class="c">// system call</span>
+close(fd);</code></pre>
+
+  <figure class="fig">
+    <svg viewBox="0 0 520 190" role="img" aria-label="Layers: programs on top, the operating system in the middle, hardware at the bottom">
+      <rect x="10" y="10" width="500" height="44" rx="6" class="l1"/>
+      <text x="260" y="37" class="lt">Programs — browser, shell, your code</text>
+      <rect x="10" y="72" width="500" height="44" rx="6" class="l2"/>
+      <text x="260" y="99" class="lt">Operating system</text>
+      <rect x="10" y="134" width="500" height="44" rx="6" class="l3"/>
+      <text x="260" y="161" class="lt">Hardware — CPU, memory, disk</text>
+    </svg>
+    <figcaption>Programs reach the hardware only through the OS.</figcaption>
+  </figure>
+
+  <aside class="callout">
+    <strong>Common mistake</strong>
+    <p><code>printf</code> is not a system call. It is a library function that eventually calls <code>write()</code>.</p>
+  </aside>
+
+  <section class="quiz">
+    <p class="q">Quick check: which of these is a system call?</p>
+    <ol class="opts">
+      <li><button type="button" data-ok="0">strlen()</button></li>
+      <li><button type="button" data-ok="1">write()</button></li>
+      <li><button type="button" data-ok="0">printf()</button></li>
+    </ol>
+    <p class="fb" aria-live="polite"></p>
+  </section>
+
+  <nav class="pager">
+    <a href="#">← Previous</a>
+    <a href="#">Next: The Process →</a>
+  </nav>
+</main>
+<script>
+document.querySelector(".toggle").addEventListener("click", function () {
+  var r = document.documentElement;
+  var dark = r.dataset.theme ? r.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  r.dataset.theme = dark ? "light" : "dark";
+});
+document.querySelectorAll(".opts button").forEach(function (b) {
+  b.addEventListener("click", function () {
+    document.querySelectorAll(".opts button").forEach(function (x) { x.classList.remove("right", "wrong"); });
+    var ok = b.dataset.ok === "1";
+    b.classList.add(ok ? "right" : "wrong");
+    document.querySelector(".fb").textContent = ok ? "Correct — write() asks the kernel to do the work." : "Not quite — that one runs entirely inside your program.";
+  });
+});
+</script>
+</body>
+</html>
