@@ -1,0 +1,35 @@
+                                                                                        C
+
+                                        A Dialogue on Monitors
+
+
+Professor: So it’s you again, huh?
+Student: I bet you are getting quite tired by now, being so, well you know, old?
+Not that 50 years old is that old, really.
+Professor: I’m not 50! I’ve just turned 40, actually. But goodness, I guess to
+you, being 20-something ...
+Student: ... 19, actually ...
+Professor: (ugh) ... yes, 19, whatever, I guess 40 and 50 seem kind of similar.
+But trust me, they’re not. At least, that’s what my 50-year old friends tell me.
+Student: Anyhow ...
+Professor: Ah yes! What are we talking about again?
+Student: Monitors. Not that I know what a monitor is, except for some kind of
+old-fashioned name for the computer display sitting in front of me.
+Professor: Yes, this is a whole different type of thing. It’s an old concurrency
+primitive, designed as a way to incorporate locking automatically into object-
+oriented programs.
+Student: Why not include it in the section on concurrency then?
+Professor: Well, most of the book is about C programming and the POSIX
+threads libraries, where there are no monitors, so there’s that. But there are some
+historical reasons to at least include the information on the topic, so here it is, I
+guess.
+Student: Ah, history. That’s for old people, like you, right?
+Professor: (glares)
+Student: Oh take it easy. I kid!
+Professor: I can’t wait until you take the final exam...
+
+
+
+
+                                         1
+
